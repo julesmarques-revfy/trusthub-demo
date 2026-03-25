@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
-import { Home, Database, Table2, Users, Send, RefreshCw, Brain, Shield, DollarSign, Building2, Plug, UserCog, Calendar, Plus, Trash2, MoreVertical, Check, AlertCircle, Snowflake, Link2, Cloud, FileSpreadsheet, Cog, Radio, TrendingUp, Zap, UserPlus, FileText, ShieldCheck, Wrench, ClipboardList, Megaphone, Ban, Search, Archive, BarChart3, Pause, Play, CircleDot, Upload, FolderSync, Webhook, ChevronRight, Activity, Target, Eye, FileDown } from 'lucide-react';
+import { useState, useMemo, useCallback, Fragment } from 'react';
+import { Home, Database, Table2, Users, Send, RefreshCw, Brain, Shield, DollarSign, Building2, Plug, UserCog, Calendar, Plus, Trash2, MoreVertical, Check, AlertCircle, Snowflake, Link2, Cloud, FileSpreadsheet, Cog, Radio, TrendingUp, Zap, UserPlus, FileText, ShieldCheck, Wrench, ClipboardList, Megaphone, Ban, Search, Archive, BarChart3, Pause, Play, CircleDot, Upload, FolderSync, Webhook, ChevronRight, Activity, Target, Eye, FileDown, Lock } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const COLORS = {
@@ -137,11 +137,11 @@ const MOCK_DATA = {
     { nome: 'Lookalike Sudeste', fonte: 'RevFy IQ', tipo: 'ML', registros: '1,567,890', atualizacao: 'Diária', qualidade: '94%', status: 'Ativo' },
   ],
   syncs: [
-    { id: 1, audiencia: 'Segmento SP 25-44', destino: 'Meta', modo: 'Upsert', records: 847293, frequencia: 'Diária', lastRun: 'Há 2h', status: 'Sucesso' },
-    { id: 2, audiencia: 'Lookalike Sudeste', destino: 'Google Ads', modo: 'Mirror', records: 1567890, frequencia: 'A cada 6h', lastRun: 'Há 30min', status: 'Sucesso' },
-    { id: 3, audiencia: 'Alto Valor - Classe A/B', destino: 'TikTok', modo: 'Upsert', records: 234567, frequencia: 'Horária', lastRun: 'Há 12min', status: 'Sucesso' },
-    { id: 4, audiencia: 'Base Inativa 90d', destino: 'X', modo: 'Upsert', records: 123456, frequencia: 'Diária', lastRun: 'Há 4h', status: 'Aviso' },
-    { id: 5, audiencia: 'Segmento SP 25-44', destino: 'TikTok', modo: 'Upsert', records: 847293, frequencia: 'A cada 12h', lastRun: 'Há 6h', status: 'Sucesso' },
+    { id: 1, audiencia: 'Segmento SP 25-44', destino: 'Meta', modo: 'Upsert', records: 847293, frequencia: 'Diária', lastRun: 'Há 2h', status: 'Sucesso', cdc: true, mappings: [{ source: 'email', dest: 'hashed_email' }, { source: 'segment_id', dest: 'custom_audience_id' }, { source: 'device_id', dest: 'device_match' }] },
+    { id: 2, audiencia: 'Lookalike Sudeste', destino: 'Google Ads', modo: 'Mirror', records: 1567890, frequencia: 'A cada 6h', lastRun: 'Há 30min', status: 'Sucesso', cdc: false, mappings: [{ source: 'email', dest: 'email_address' }, { source: 'id', dest: 'user_id' }] },
+    { id: 3, audiencia: 'Alto Valor - Classe A/B', destino: 'TikTok', modo: 'Upsert', records: 234567, frequencia: 'Horária', lastRun: 'Há 12min', status: 'Sucesso', cdc: true, mappings: [{ source: 'phone', dest: 'phone_number' }, { source: 'location', dest: 'region' }] },
+    { id: 4, audiencia: 'Base Inativa 90d', destino: 'X', modo: 'Add/Remove', records: 123456, frequencia: 'Diária', lastRun: 'Há 4h', status: 'Aviso', cdc: false, mappings: [{ source: 'user_id', dest: 'account_id' }] },
+    { id: 5, audiencia: 'Segmento SP 25-44', destino: 'TikTok', modo: 'CDC', records: 847293, frequencia: 'A cada 12h', lastRun: 'Há 6h', status: 'Sucesso', cdc: true, mappings: [{ source: 'email', dest: 'email' }, { source: 'name', dest: 'user_name' }, { source: 'age', dest: 'age_group' }] },
   ],
   users: [
     { id: 1, name: 'Jules Marques', email: 'jules@revfy.io', role: 'Admin', lastAccess: 'Agora', status: 'Ativo' },
@@ -893,24 +893,65 @@ const AudienciasPage = ({ platformData }) => {
           </div>
           {activeTab === 'construtor' && (
             <div>
-              <div style={{ marginBottom: '24px' }}>
-                <div style={{ fontSize: '12px', fontWeight: '700', color: COLORS.muted, marginBottom: '12px', textTransform: 'uppercase' }}>Filtros</div>
-                {[{ entity: 'Estado', attr: 'Valor', op: '=', val: 'SP' }, { entity: 'Faixa Etária', attr: 'Valor', op: 'BETWEEN', val: '25-44' }, { entity: 'Comportamento', attr: 'engajamento_digital', op: '>=', val: '0.7' }].map((filter, idx) => (
-                  <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '12px', marginBottom: '12px', alignItems: 'center' }}>
-                    <select style={{ padding: '8px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '13px' }} defaultValue={filter.entity}><option>{filter.entity}</option></select>
-                    <select style={{ padding: '8px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '13px' }} defaultValue={filter.attr}><option>{filter.attr}</option></select>
-                    <select style={{ padding: '8px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '13px' }} defaultValue={filter.op}><option>{filter.op}</option></select>
-                    <input type="text" defaultValue={filter.val} style={{ padding: '8px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }} />
-                    <Trash2 size={16} color={COLORS.muted} style={{ cursor: 'pointer' }} />
+              {/* Dataset Source */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: COLORS.muted, marginBottom: '8px', textTransform: 'uppercase' }}>Dataset Base</div>
+                <select style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px', backgroundColor: COLORS.lightGray }}>
+                  <option>revfy_events (Revfy Pixel) — 3.1M registros</option>
+                  <option>Upload Março (CSV) — 45K registros</option>
+                  <option>Audiência Indecisos (Blended) — 2.3M registros</option>
+                </select>
+              </div>
+
+              {/* Filters */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '700', color: COLORS.muted, marginBottom: '12px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Filtros</span>
+                  <button style={{ padding: '4px 12px', fontSize: '11px', border: `1px solid ${COLORS.primary}`, borderRadius: '4px', background: 'none', color: COLORS.primary, cursor: 'pointer', fontWeight: '600' }}>+ Adicionar Filtro</button>
+                </div>
+                {[{ entity: 'Estado', attr: 'Valor', op: '=', val: 'SP', logic: 'WHERE' }, { entity: 'Faixa Etária', attr: 'Valor', op: 'BETWEEN', val: '25-44', logic: 'AND' }, { entity: 'Comportamento', attr: 'engajamento_digital', op: '>=', val: '0.7', logic: 'AND' }].map((filter, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '10px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: COLORS.primary, width: '50px', textAlign: 'center', fontFamily: 'monospace' }}>{filter.logic}</span>
+                    <select style={{ padding: '8px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '13px', flex: 1 }} defaultValue={filter.entity}><option>{filter.entity}</option><option>Região</option><option>Gênero</option><option>Renda</option></select>
+                    <select style={{ padding: '8px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '13px', flex: 1 }} defaultValue={filter.attr}><option>{filter.attr}</option></select>
+                    <select style={{ padding: '8px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '13px', width: '100px' }} defaultValue={filter.op}><option>=</option><option>!=</option><option>&gt;=</option><option>&lt;=</option><option>BETWEEN</option><option>IN</option></select>
+                    <input type="text" defaultValue={filter.val} style={{ padding: '8px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '13px', flex: 1, boxSizing: 'border-box' }} />
+                    <Trash2 size={16} color={COLORS.muted} style={{ cursor: 'pointer', flexShrink: 0 }} />
                   </div>
                 ))}
               </div>
-              <div style={{ padding: '16px', backgroundColor: COLORS.bgBlue, borderRadius: '8px', marginTop: '24px' }}>
+
+              {/* Inclusions / Exclusions */}
+              <div style={{ marginBottom: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ padding: '12px', border: `1px solid ${COLORS.success}40`, borderRadius: '8px', backgroundColor: `${COLORS.success}08` }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: COLORS.success, marginBottom: '8px' }}>Incluir Audiências</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer' }}>
+                      <input type="checkbox" defaultChecked style={{ width: '14px', height: '14px' }} /> Lookalike Sudeste (1.5M)
+                    </label>
+                  </div>
+                </div>
+                <div style={{ padding: '12px', border: `1px solid ${COLORS.error}40`, borderRadius: '8px', backgroundColor: `${COLORS.error}08` }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: COLORS.error, marginBottom: '8px' }}>Excluir Audiências</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer' }}>
+                      <input type="checkbox" defaultChecked style={{ width: '14px', height: '14px' }} /> Base Inativa 90d (123K)
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Audience Size */}
+              <div style={{ padding: '16px', backgroundColor: COLORS.bgBlue, borderRadius: '8px' }}>
                 <div style={{ fontSize: '13px', fontWeight: '700', color: COLORS.primary, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}><BarChart3 size={16} /> Tamanho da Audiência</div>
-                <div style={{ fontSize: '24px', fontWeight: '700', color: '#000', marginBottom: '8px' }}>847,293 perfis</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '12px' }}>
-                  <div>Tratada: <span style={{ fontWeight: '700', color: COLORS.primary }}>523,841</span></div>
-                  <div>Controlado: <span style={{ fontWeight: '700', color: COLORS.primary }}>323,452</span></div>
+                <div style={{ fontSize: '28px', fontWeight: '700', color: '#000', marginBottom: '4px' }}>847,293 <span style={{ fontSize: '14px', fontWeight: '400', color: COLORS.muted }}>perfis</span></div>
+                <div style={{ width: '100%', height: '8px', backgroundColor: '#E8E8E8', borderRadius: '4px', marginBottom: '12px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: '62%', backgroundColor: COLORS.primary, borderRadius: '4px' }} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', fontSize: '12px' }}>
+                  <div>Tratamento: <span style={{ fontWeight: '700', color: COLORS.primary }}>523,841</span> <span style={{ color: COLORS.muted }}>(62%)</span></div>
+                  <div>Controle: <span style={{ fontWeight: '700', color: COLORS.primary }}>323,452</span> <span style={{ color: COLORS.muted }}>(38%)</span></div>
+                  <div>Overlap: <span style={{ fontWeight: '700', color: '#FFA500' }}>12,340</span> <span style={{ color: COLORS.muted }}>(1.5%)</span></div>
                 </div>
               </div>
             </div>
@@ -961,83 +1002,379 @@ const DestinosPage = () => (
   </div>
 );
 
-const SincronizacoesPage = () => (
-  <div style={{ flex: 1, overflowY: 'auto' }}>
-    <div style={{ padding: '32px' }}>
-      <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Sincronizações</h1>
-      <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead><tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
-            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Audiência</th>
-            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Destino</th>
-            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Registros</th>
-            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Frequência</th>
-            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Último Sync</th>
-            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Status</th>
-          </tr></thead>
-          <tbody>
-            {MOCK_DATA.syncs.map((sync) => (
-              <tr key={sync.id} style={{ borderBottom: `1px solid ${COLORS.border}` }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                <td style={{ padding: '12px', fontWeight: '600' }}>{sync.audiencia}</td>
-                <td style={{ padding: '12px' }}>{sync.destino}</td>
-                <td style={{ padding: '12px' }}>{sync.records.toLocaleString()}</td>
-                <td style={{ padding: '12px' }}>{sync.frequencia}</td>
-                <td style={{ padding: '12px' }}>{sync.lastRun}</td>
-                <td style={{ padding: '12px' }}><Badge color={sync.status === 'Sucesso' ? 'green' : 'yellow'}>{sync.status}</Badge></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-);
-
-const RevFyIQPage = () => (
-  <div style={{ flex: 1, overflowY: 'auto' }}>
-    <div style={{ padding: '32px' }}>
-      <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>RevFy IQ</h1>
-      <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
-        <div style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', color: '#000' }}>Modelos de Machine Learning</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          {[{ name: 'Lookalike Sudeste', accuracy: '94%', dataset: '1.5M registros' }, { name: 'Churn Prediction', accuracy: '91%', dataset: '847K registros' }].map((model, idx) => (
-            <div key={idx} style={{ padding: '16px', backgroundColor: COLORS.lightGray, borderRadius: '8px' }}>
-              <div style={{ fontWeight: '600', color: '#000', marginBottom: '4px' }}>{model.name}</div>
-              <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '8px' }}>Acurácia: {model.accuracy}</div>
-              <div style={{ fontSize: '11px', color: COLORS.muted }}>{model.dataset}</div>
+const SincronizacoesPage = () => {
+  const [expandedId, setExpandedId] = useState(null);
+  const totalRecords = MOCK_DATA.syncs.reduce((sum, s) => sum + s.records, 0);
+  const successRate = ((MOCK_DATA.syncs.filter(s => s.status === 'Sucesso').length / MOCK_DATA.syncs.length) * 100).toFixed(1);
+  const getModoColor = (modo) => ({ Upsert: 'blue', Mirror: 'green', 'Add/Remove': 'yellow', CDC: 'blue' }[modo] || 'blue');
+  return (
+    <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ padding: '32px' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Sincronizações</h1>
+        <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
+          {[{ label: 'Syncs Ativos', value: MOCK_DATA.syncs.length }, { label: 'Registros Sincronizados', value: `${(totalRecords / 1000000).toFixed(1)}M` }, { label: 'Taxa de Sucesso', value: `${successRate}%`, color: COLORS.success }].map((kpi, i) => (
+            <div key={i} style={{ padding: '12px 16px', backgroundColor: COLORS.cardBg, borderRadius: '8px', border: `1px solid ${COLORS.border}`, flex: 1 }}>
+              <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '4px' }}>{kpi.label}</div>
+              <div style={{ fontSize: '24px', fontWeight: '700', color: kpi.color || '#000' }}>{kpi.value}</div>
             </div>
           ))}
         </div>
+        <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead><tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
+              {['Audiência', 'Destino', 'Modo', 'CDC', 'Registros', 'Frequência', 'Último Sync', 'Status'].map(h => (
+                <th key={h} style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {MOCK_DATA.syncs.map((sync) => (
+                <Fragment key={sync.id}>
+                  <tr style={{ borderBottom: `1px solid ${COLORS.border}`, cursor: 'pointer' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    onClick={() => setExpandedId(expandedId === sync.id ? null : sync.id)}>
+                    <td style={{ padding: '12px', fontWeight: '600' }}>{sync.audiencia}</td>
+                    <td style={{ padding: '12px' }}>{sync.destino}</td>
+                    <td style={{ padding: '12px' }}><Badge color={getModoColor(sync.modo)}>{sync.modo}</Badge></td>
+                    <td style={{ padding: '12px' }}>{sync.cdc ? <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '600', color: COLORS.primary }}><Zap size={14} /> Streams</span> : <span style={{ fontSize: '12px', color: COLORS.muted }}>—</span>}</td>
+                    <td style={{ padding: '12px' }}>{sync.records.toLocaleString()}</td>
+                    <td style={{ padding: '12px' }}>{sync.frequencia}</td>
+                    <td style={{ padding: '12px' }}>{sync.lastRun}</td>
+                    <td style={{ padding: '12px' }}><Badge color={sync.status === 'Sucesso' ? 'green' : 'yellow'}>{sync.status}</Badge></td>
+                  </tr>
+                  {expandedId === sync.id && sync.mappings && (
+                    <tr style={{ backgroundColor: COLORS.lightGray, borderBottom: `1px solid ${COLORS.border}` }}>
+                      <td colSpan={8} style={{ padding: '12px 12px 12px 24px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '8px' }}>Field Mapping:</div>
+                        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                          {sync.mappings.map((m, idx) => (
+                            <div key={idx} style={{ fontSize: '11px', backgroundColor: COLORS.cardBg, padding: '6px 10px', borderRadius: '4px', border: `1px solid ${COLORS.border}` }}>
+                              <span style={{ fontWeight: '600', color: '#000' }}>{m.source}</span>
+                              <span style={{ color: COLORS.muted }}> → </span>
+                              <span style={{ fontWeight: '600', color: COLORS.primary }}>{m.dest}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
-const GovernancaPage = () => (
-  <div style={{ flex: 1, overflowY: 'auto' }}>
-    <div style={{ padding: '32px' }}>
-      <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Governança</h1>
-      <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead><tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
-            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Requisito</th>
-            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Status</th>
-            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Detalhe</th>
-          </tr></thead>
-          <tbody>
-            {MOCK_DATA.compliance.map((item, idx) => (
-              <tr key={idx} style={{ borderBottom: `1px solid ${COLORS.border}` }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                <td style={{ padding: '12px', fontWeight: '600' }}>{item.req}</td>
-                <td style={{ padding: '12px' }}><Badge color={item.status === 'Completo' ? 'green' : 'yellow'}>{item.status}</Badge></td>
-                <td style={{ padding: '12px', fontSize: '12px', color: COLORS.muted }}>{item.detail}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+const RevFyIQPage = () => {
+  const [activeTab, setActiveTab] = useState('cortex');
+  const sentimentData = [
+    { segment: 'Jovens 18-24', positive: 62, neutral: 24, negative: 14 },
+    { segment: 'Adultos 25-44', positive: 71, neutral: 18, negative: 11 },
+    { segment: 'Seniores 45+', positive: 55, neutral: 30, negative: 15 },
+    { segment: 'Classe A/B', positive: 68, neutral: 22, negative: 10 },
+    { segment: 'Indecisos', positive: 34, neutral: 45, negative: 21 },
+  ];
+  const forecastData = [
+    { week: 'S1', atual: 42, previsto: 42 }, { week: 'S2', atual: 44, previsto: 43 }, { week: 'S3', atual: 45, previsto: 45 },
+    { week: 'S4', atual: 47, previsto: 46 }, { week: 'S5', atual: null, previsto: 48 }, { week: 'S6', atual: null, previsto: 50 },
+    { week: 'S7', atual: null, previsto: 51 }, { week: 'S8', atual: null, previsto: 52 },
+  ];
+  const tabs = ['cortex', 'models', 'decisioning'];
+  const tabLabels = { cortex: 'Cortex AI', models: 'Modelos ML', decisioning: 'AI Decisioning' };
+  return (
+    <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ padding: '32px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: '700', margin: 0, color: '#000' }}>RevFy IQ</h1>
+          <div style={{ padding: '6px 14px', backgroundColor: COLORS.bgBlue, borderRadius: '20px', fontSize: '12px', fontWeight: '600', color: COLORS.primary }}>Powered by Snowflake Cortex</div>
+        </div>
+        <div style={{ display: 'flex', borderBottom: `2px solid ${COLORS.border}`, margin: '20px 0 24px' }}>
+          {tabs.map((tab) => (
+            <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '10px 20px', fontSize: '13px', fontWeight: '600', color: activeTab === tab ? COLORS.primary : COLORS.muted, cursor: 'pointer', background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab ? COLORS.primary : 'transparent'}`, marginBottom: '-2px', transition: 'all 0.15s' }}>{tabLabels[tab]}</button>
+          ))}
+        </div>
+
+        {activeTab === 'cortex' && (
+          <div>
+            {/* Cortex AI Functions */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+              {[
+                { name: 'SENTIMENT', desc: 'Análise de sentimento em pesquisas e textos', status: 'Ativo', count: '2.3M analisados' },
+                { name: 'AI_CLASSIFY', desc: 'Classificação de eleitores por perfil comportamental', status: 'Ativo', count: '847K classificados' },
+                { name: 'AI_EMBED', desc: 'Embeddings para lookalike audiences via similaridade', status: 'Ativo', count: '1.5M vetores' },
+                { name: 'SUMMARIZE', desc: 'Resumo de feedback de campanha e pesquisas abertas', status: 'Ativo', count: '45K resumos' },
+                { name: 'TRANSLATE', desc: 'Tradução de materiais de campanha multi-idioma', status: 'Standby', count: '—' },
+                { name: 'FORECAST', desc: 'Previsão de intenção de voto por região/segmento', status: 'Ativo', count: '8 modelos' },
+              ].map((fn, i) => (
+                <div key={i} style={{ padding: '16px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: '700', color: COLORS.primary, fontFamily: 'monospace' }}>{fn.name}</span>
+                    <Badge color={fn.status === 'Ativo' ? 'green' : 'yellow'} variant="outline">{fn.status}</Badge>
+                  </div>
+                  <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '8px' }}>{fn.desc}</div>
+                  <div style={{ fontSize: '11px', fontWeight: '600', color: '#000' }}>{fn.count}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Sentiment Analysis Results */}
+            <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, padding: '24px', marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#000', marginBottom: '16px' }}>Análise de Sentimento por Segmento</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {sentimentData.map((s, i) => (
+                  <div key={i}>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>{s.segment}</div>
+                    <div style={{ display: 'flex', height: '20px', borderRadius: '4px', overflow: 'hidden', width: '100%' }}>
+                      <div style={{ width: `${s.positive}%`, backgroundColor: COLORS.success, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', fontWeight: '600' }}>{s.positive}%</div>
+                      <div style={{ width: `${s.neutral}%`, backgroundColor: '#FFA500', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', fontWeight: '600' }}>{s.neutral}%</div>
+                      <div style={{ width: `${s.negative}%`, backgroundColor: COLORS.error, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#fff', fontWeight: '600' }}>{s.negative}%</div>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: '16px', marginTop: '8px', fontSize: '11px' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: COLORS.success }} /> Positivo</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: '#FFA500' }} /> Neutro</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: COLORS.error }} /> Negativo</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Forecast Chart */}
+            <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, padding: '24px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#000', marginBottom: '16px' }}>Forecast de Intenção de Voto (%)</h3>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={forecastData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                  <XAxis dataKey="week" stroke={COLORS.muted} />
+                  <YAxis domain={[30, 60]} stroke={COLORS.muted} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="atual" stroke={COLORS.primary} strokeWidth={2} dot={{ fill: COLORS.primary }} name="Atual" />
+                  <Line type="monotone" dataKey="previsto" stroke={COLORS.cyan} strokeWidth={2} strokeDasharray="8 4" dot={{ fill: COLORS.cyan }} name="Previsto" />
+                </LineChart>
+              </ResponsiveContainer>
+              <div style={{ display: 'flex', gap: '16px', marginTop: '8px', fontSize: '11px', justifyContent: 'center' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '20px', height: '2px', backgroundColor: COLORS.primary }} /> Dados reais</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><div style={{ width: '20px', height: '2px', backgroundColor: COLORS.cyan, borderTop: '2px dashed' }} /> Projeção Cortex FORECAST</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'models' && (
+          <div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              {[
+                { name: 'Lookalike Sudeste', type: 'AI_EMBED + Clustering', accuracy: '94%', dataset: '1.5M registros', status: 'Produção', desc: 'Embeddings de perfis eleitorais para expansão de audiência por similaridade semântica' },
+                { name: 'Churn Prediction', type: 'FORECAST (GBM)', accuracy: '91%', dataset: '847K registros', status: 'Produção', desc: 'Previsão de desengajamento eleitoral baseada em série temporal de interações' },
+                { name: 'Classificador Indeciso', type: 'AI_CLASSIFY', accuracy: '88%', dataset: '2.3M registros', status: 'Teste', desc: 'Classificação de eleitores indecisos via análise de comportamento digital' },
+                { name: 'Anomaly Monitor', type: 'ANOMALY_DETECTION', accuracy: '96%', dataset: '5.2M eventos', status: 'Produção', desc: 'Detecção de anomalias em padrões de campanha e métricas de performance' },
+              ].map((model, idx) => (
+                <div key={idx} style={{ padding: '20px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                    <div style={{ fontSize: '15px', fontWeight: '700', color: '#000' }}>{model.name}</div>
+                    <Badge color={model.status === 'Produção' ? 'green' : 'blue'}>{model.status}</Badge>
+                  </div>
+                  <div style={{ fontSize: '11px', fontFamily: 'monospace', color: COLORS.primary, marginBottom: '8px' }}>{model.type}</div>
+                  <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '12px' }}>{model.desc}</div>
+                  <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ padding: '8px 12px', backgroundColor: COLORS.lightGray, borderRadius: '6px', fontSize: '12px' }}>
+                      <span style={{ color: COLORS.muted }}>Acurácia: </span><span style={{ fontWeight: '700', color: '#000' }}>{model.accuracy}</span>
+                    </div>
+                    <div style={{ padding: '8px 12px', backgroundColor: COLORS.lightGray, borderRadius: '6px', fontSize: '12px' }}>
+                      <span style={{ color: COLORS.muted }}>Dataset: </span><span style={{ fontWeight: '700', color: '#000' }}>{model.dataset}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'decisioning' && (
+          <div>
+            {/* AI Decisioning Agent */}
+            <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, padding: '24px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#000', margin: 0 }}>Agente de Otimização (Reinforcement Learning)</h3>
+                <Badge color="green">Aprendendo</Badge>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
+                {[
+                  { l: 'Eligible Users', v: '847,293' }, { l: 'Conversion Rate', v: '3.2%' },
+                  { l: 'Confidence', v: '±0.4%' }, { l: 'Sends Hoje', v: '12,450' },
+                ].map((kpi, i) => (
+                  <div key={i} style={{ padding: '12px', backgroundColor: COLORS.lightGray, borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '11px', color: COLORS.muted, marginBottom: '2px' }}>{kpi.l}</div>
+                    <div style={{ fontSize: '18px', fontWeight: '700', color: '#000' }}>{kpi.v}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '16px', backgroundColor: COLORS.bgBlue, borderRadius: '8px', marginBottom: '16px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '600', color: COLORS.primary, marginBottom: '8px' }}>Mensagens em Rotação</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {[
+                    { name: 'WhatsApp — Convite Evento', sends: '5,230', conv: '4.1%', winner: true },
+                    { name: 'SMS — Lembrete Votação', sends: '4,120', conv: '2.8%', winner: false },
+                    { name: 'Push — Atualização Programa', sends: '3,100', conv: '2.5%', winner: false },
+                  ].map((msg, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', backgroundColor: COLORS.cardBg, borderRadius: '6px', border: `1px solid ${msg.winner ? COLORS.success + '60' : COLORS.border}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {msg.winner && <Zap size={14} color={COLORS.success} />}
+                        <span style={{ fontSize: '12px', fontWeight: '600', color: '#000' }}>{msg.name}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
+                        <span style={{ color: COLORS.muted }}>{msg.sends} sends</span>
+                        <span style={{ fontWeight: '700', color: msg.winner ? COLORS.success : '#000' }}>{msg.conv}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Smart Suppression */}
+            <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, padding: '24px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#000', marginBottom: '16px' }}>Smart Suppression</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                <div style={{ width: '36px', height: '20px', borderRadius: '10px', backgroundColor: COLORS.success, position: 'relative', cursor: 'pointer' }}>
+                  <div style={{ width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#fff', position: 'absolute', top: '2px', right: '2px', boxShadow: '0 1px 3px rgba(0,0,0,.2)' }} />
+                </div>
+                <span style={{ fontSize: '13px', fontWeight: '600', color: '#000' }}>Enviar apenas ao top 80% com maior probabilidade de conversão</span>
+              </div>
+              <div style={{ padding: '16px', backgroundColor: COLORS.lightGray, borderRadius: '8px', marginBottom: '12px' }}>
+                <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '8px' }}>Performance estimada com supressão ativa:</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', fontSize: '12px' }}>
+                  <div><span style={{ color: COLORS.muted }}>Envios: </span><span style={{ fontWeight: '700' }}>-20%</span></div>
+                  <div><span style={{ color: COLORS.muted }}>Conversões: </span><span style={{ fontWeight: '700', color: COLORS.success }}>-3% (marginal)</span></div>
+                  <div><span style={{ color: COLORS.muted }}>Custo/Conversão: </span><span style={{ fontWeight: '700', color: COLORS.success }}>-22%</span></div>
+                </div>
+              </div>
+              <div style={{ fontSize: '11px', color: COLORS.muted }}>O agente aprende continuamente qual percentagem de supressão maximiza ROI. Dados de 14+ dias necessários para confiança estatística.</div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
-  </div>
-);
+  );
+};
+
+const GovernancaPage = () => {
+  const maskingCols = [
+    { name: 'email', rule: 'Email Hash', roles: 'Analista, Admin', masked: '***@***.com' },
+    { name: 'cpf', rule: 'Document Mask', roles: 'Admin', masked: '***.***.***-**' },
+    { name: 'telefone', rule: 'Phone Mask', roles: 'Operador', masked: '+55 ** *****-****' },
+    { name: 'endereco', rule: 'Text Redact', roles: 'Admin', masked: '[REDACTED]' },
+  ];
+  const piiItems = [
+    { label: 'EMAIL', confidence: 99.8 }, { label: 'CPF', confidence: 98.2 }, { label: 'PHONE', confidence: 97.5 }, { label: 'NAME', confidence: 96.1 }, { label: 'ADDRESS', confidence: 94.3 },
+  ];
+  const auditTrail = [
+    { ts: '25/03 14:32', user: 'Jules Marques', action: 'Executou query no DCR', status: 'Sucesso' },
+    { ts: '25/03 12:08', user: 'Maria Silva', action: 'Alterou policy de masking', status: 'Sucesso' },
+    { ts: '24/03 16:45', user: 'Carlos Gomes', action: 'Auditoria de conformidade', status: 'Sucesso' },
+    { ts: '24/03 10:12', user: 'Ana Costa', action: 'Adicionou participante ao DCR', status: 'Aviso' },
+    { ts: '23/03 18:55', user: 'Jules Marques', action: 'Sincronizou dados com Snowflake', status: 'Sucesso' },
+  ];
+  const thStyle = { padding: '10px', textAlign: 'left', fontSize: '11px', fontWeight: '700', color: COLORS.muted };
+  return (
+    <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ padding: '32px' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Governança</h1>
+
+        {/* DCR */}
+        <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, padding: '24px', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}><Snowflake size={24} color={COLORS.primary} /><h2 style={{ fontSize: '16px', fontWeight: '700', color: '#000', margin: 0 }}>Snowflake Data Clean Room</h2></div>
+            <Badge color="green">Ativo</Badge>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+            {[{ l: 'Queries Executadas', v: '1,247' }, { l: 'Participants', v: '3 organizações' }, { l: 'PII Exposure', v: '0 (zero)', c: COLORS.success }].map((m, i) => (
+              <div key={i} style={{ padding: '12px', backgroundColor: COLORS.lightGray, borderRadius: '8px' }}>
+                <div style={{ fontSize: '11px', color: COLORS.muted, marginBottom: '2px' }}>{m.l}</div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: m.c || '#000' }}>{m.v}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: '12px', color: COLORS.muted, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <span>Aggregation Policy: min 50 registros</span><span>Differential Privacy: ε = 1.0</span><span>Masking: Ativo em 12 colunas</span>
+          </div>
+        </div>
+
+        {/* Dynamic Data Masking */}
+        <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, padding: '24px', marginBottom: '24px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#000', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}><Lock size={18} color={COLORS.primary} /> Dynamic Data Masking</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead><tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+              <th style={thStyle}>Coluna</th><th style={thStyle}>Masking Rule</th><th style={thStyle}>Roles</th><th style={thStyle}>Exemplo</th>
+            </tr></thead>
+            <tbody>{maskingCols.map((c, i) => (
+              <tr key={i} style={{ borderBottom: `1px solid ${COLORS.border}` }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                <td style={{ padding: '10px', fontWeight: '600', fontSize: '12px' }}>{c.name}</td>
+                <td style={{ padding: '10px', fontSize: '12px', color: COLORS.muted }}>{c.rule}</td>
+                <td style={{ padding: '10px', fontSize: '12px', color: COLORS.muted }}>{c.roles}</td>
+                <td style={{ padding: '10px', fontSize: '12px', fontFamily: 'monospace', color: COLORS.primary }}>{c.masked}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+
+        {/* PII Classification */}
+        <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, padding: '24px', marginBottom: '24px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#000', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}><Eye size={18} color={COLORS.primary} /> PII Auto-Detection <span style={{ fontSize: '11px', fontWeight: '400', color: COLORS.muted }}>(EXTRACT_SEMANTIC_CATEGORIES)</span></h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {piiItems.map((item, i) => (
+              <div key={i}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#000' }}>{item.label}</span>
+                  <span style={{ fontSize: '12px', color: COLORS.success, fontWeight: '600' }}>{item.confidence}%</span>
+                </div>
+                <div style={{ width: '100%', height: '6px', backgroundColor: COLORS.lightGray, borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${item.confidence}%`, backgroundColor: COLORS.success, borderRadius: '3px' }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Compliance Checklist */}
+        <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, padding: '24px', marginBottom: '24px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#000', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}><ShieldCheck size={18} color={COLORS.primary} /> Compliance Checklist</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead><tr style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+              <th style={thStyle}>Requisito</th><th style={thStyle}>Status</th><th style={thStyle}>Detalhe</th>
+            </tr></thead>
+            <tbody>{MOCK_DATA.compliance.map((item, idx) => (
+              <tr key={idx} style={{ borderBottom: `1px solid ${COLORS.border}` }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                <td style={{ padding: '10px', fontWeight: '600', fontSize: '12px' }}>{item.req}</td>
+                <td style={{ padding: '10px' }}><Badge color={item.status === 'Completo' ? 'green' : 'yellow'}>{item.status}</Badge></td>
+                <td style={{ padding: '10px', fontSize: '12px', color: COLORS.muted }}>{item.detail}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+
+        {/* Audit Trail */}
+        <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, padding: '24px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#000', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}><Activity size={18} color={COLORS.primary} /> Audit Trail</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {auditTrail.map((e, i) => (
+              <div key={i} style={{ padding: '12px', backgroundColor: COLORS.lightGray, borderRadius: '8px', borderLeft: `3px solid ${e.status === 'Sucesso' ? COLORS.success : '#FFA500'}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: '#000' }}>{e.action}</span>
+                  <Badge color={e.status === 'Sucesso' ? 'green' : 'yellow'}>{e.status}</Badge>
+                </div>
+                <div style={{ fontSize: '11px', color: COLORS.muted }}>{e.user} • {e.ts}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const InvestimentoPage = () => (
   <div style={{ flex: 1, overflowY: 'auto' }}>
