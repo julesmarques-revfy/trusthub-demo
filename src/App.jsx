@@ -25,7 +25,7 @@ const NAVIGATION = [
       { id: 'datasync', label: 'Data Sync', icon: Database },
       { id: 'audiencias', label: 'Audiências', icon: Users },
       { id: 'destinos', label: 'Destinos', icon: Send },
-      { id: 'sincronizacoes', label: 'Sincronizações', icon: RefreshCw },
+      { id: 'sincronizacoes', label: 'Syncs', icon: RefreshCw },
       { id: 'revfyiq', label: 'RevFy IQ', icon: Brain },
     ]
   },
@@ -40,7 +40,6 @@ const NAVIGATION = [
   {
     section: 'Configuração',
     items: [
-      { id: 'integracoes', label: 'Integrações', icon: Plug },
       { id: 'usuarios', label: 'Usuários', icon: UserCog },
       { id: 'calendario', label: 'Calendário', icon: Calendar },
     ]
@@ -777,13 +776,67 @@ const DataSyncPage = ({ sourceState, sourceActions, platformData }) => {
   const initSchemaFields = () => { setSchemaFields(FIELD_DEFS.map(f => ({ ...f }))); };
 
   const INGEST_SOURCES = [
-    { name: 'Meta Ads', desc: 'Facebook & Instagram Ads', icon: 'f', color: '#1877F2' },
-    { name: 'Google Ads', desc: 'Search, Display & YouTube', icon: 'g', color: '#4285F4' },
-    { name: 'TikTok Ads', desc: 'TikTok For Business', icon: 'tt', color: '#000' },
-    { name: 'WhatsApp Business', desc: 'Messaging & Engagement', icon: 'wa', color: '#25D366' },
-    { name: 'Braze', desc: 'Cross-channel engagement', icon: 'B', color: '#FF6F20' },
-    { name: 'Salesforce MC', desc: 'Marketing Cloud', icon: 'sf', color: '#00A1E0' },
+    { name: 'Meta Ads', desc: 'Facebook & Instagram Ads', icon: 'f', color: '#1877F2', authFields: ['Ad Account ID', 'Access Token'] },
+    { name: 'Google Ads', desc: 'Search, Display & YouTube', icon: 'g', color: '#4285F4', authFields: ['Customer ID', 'Developer Token', 'OAuth Client ID'] },
+    { name: 'TikTok Ads', desc: 'TikTok For Business', icon: 'tt', color: '#000', authFields: ['Advertiser ID', 'Access Token'] },
+    { name: 'Braze', desc: 'Cross-channel engagement', icon: 'B', color: '#FF6F20', authFields: ['REST API Key', 'REST Endpoint', 'App Group'] },
+    { name: 'Salesforce MC', desc: 'Marketing Cloud', icon: 'sf', color: '#00A1E0', authFields: ['Client ID', 'Client Secret', 'Auth Base URI'] },
   ];
+
+  const [ingestWizard, setIngestWizard] = useState(null);
+  const [ingestStep, setIngestStep] = useState(0);
+  const [ingestConnecting, setIngestConnecting] = useState(false);
+  const [ingestConnected, setIngestConnected] = useState({});
+
+  // Dataset Group creation wizard
+  const [showGroupWizard, setShowGroupWizard] = useState(false);
+  const [groupWizardStep, setGroupWizardStep] = useState(0);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDesc, setNewGroupDesc] = useState('');
+  const [newGroupPrimary, setNewGroupPrimary] = useState('');
+  const [newGroupGranularity, setNewGroupGranularity] = useState('Individual');
+  const [dynamicGroups, setDynamicGroups] = useState([]);
+
+  const handleCreateGroup = () => {
+    if (newGroupName && newGroupPrimary) {
+      setDynamicGroups(prev => [...prev, {
+        name: newGroupName, desc: newGroupDesc || 'Grupo personalizado', primary: newGroupPrimary,
+        tables: [{ name: newGroupPrimary, role: 'Primary', records: '—', join: null }],
+      }]);
+      setShowGroupWizard(false); setGroupWizardStep(0); setNewGroupName(''); setNewGroupDesc(''); setNewGroupPrimary('');
+    }
+  };
+
+  // Dataset creation wizard
+  const [showDatasetWizard, setShowDatasetWizard] = useState(false);
+  const [datasetWizardStep, setDatasetWizardStep] = useState(0);
+  const [newDsGroup, setNewDsGroup] = useState('');
+  const [newDsSource, setNewDsSource] = useState('');
+  const [newDsTable, setNewDsTable] = useState('');
+  const [newDsType, setNewDsType] = useState('Events');
+  const [newDsKey, setNewDsKey] = useState('');
+  const [newDsJoinKey, setNewDsJoinKey] = useState('');
+  const [newDsCardinality, setNewDsCardinality] = useState('many-to-one');
+  const [dynamicDatasetRows, setDynamicDatasetRows] = useState([]);
+
+  const handleCreateDataset = () => {
+    if (newDsTable && newDsGroup) {
+      setDynamicDatasetRows(prev => [...prev, {
+        nome: newDsTable, fonte: newDsSource || 'Custom', tipo: newDsType, registros: '—', atualizacao: 'Configurando', qualidade: '—', status: 'Revisão',
+      }]);
+      setShowDatasetWizard(false); setDatasetWizardStep(0); setNewDsGroup(''); setNewDsSource(''); setNewDsTable(''); setNewDsKey(''); setNewDsJoinKey('');
+    }
+  };
+
+  const handleIngestConnect = (src) => { setIngestWizard(src); setIngestStep(0); setIngestConnecting(false); };
+  const handleIngestAuth = () => {
+    setIngestConnecting(true);
+    setTimeout(() => { setIngestConnecting(false); setIngestStep(1); }, 2000);
+  };
+  const handleIngestFinish = () => {
+    setIngestConnected(prev => ({ ...prev, [ingestWizard.name]: true }));
+    setIngestWizard(null); setIngestStep(0);
+  };
 
   const DATASET_GROUPS = [
     { name: 'Eleitores', desc: 'Perfis individuais de eleitores', primary: 'eleitores_360', tables: [
@@ -839,7 +892,7 @@ const DataSyncPage = ({ sourceState, sourceActions, platformData }) => {
         {activeTab === 'datasets' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
-              <button style={{ padding: '8px 16px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>+ Create Dataset</button>
+              <button onClick={() => setShowDatasetWizard(true)} style={{ padding: '8px 16px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>+ Create Dataset</button>
             </div>
             <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -852,7 +905,7 @@ const DataSyncPage = ({ sourceState, sourceActions, platformData }) => {
                   <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Actions</th>
                 </tr></thead>
                 <tbody>
-                  {platformData.allDatasets.map((ds, idx) => (
+                  {[...platformData.allDatasets, ...dynamicDatasetRows].map((ds, idx) => (
                     <tr key={idx} style={{ borderBottom: `1px solid ${COLORS.border}` }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                       <td style={{ padding: '12px', fontSize: '13px' }}><div style={{ fontWeight: '600' }}>{ds.nome}</div></td>
                       <td style={{ padding: '12px', fontSize: '13px' }}>{ds.fonte}</td>
@@ -885,9 +938,9 @@ const DataSyncPage = ({ sourceState, sourceActions, platformData }) => {
                 <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#000', margin: 0 }}>Dataset Groups</h3>
                 <p style={{ fontSize: '12px', color: COLORS.muted, margin: '4px 0 0' }}>Grupos de tabelas com joins pré-configurados. Cada grupo tem uma tabela primária que define o nível de granularidade.</p>
               </div>
-              <button style={{ padding: '8px 16px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>+ Novo Grupo</button>
+              <button onClick={() => setShowGroupWizard(true)} style={{ padding: '8px 16px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>+ Novo Grupo</button>
             </div>
-            {DATASET_GROUPS.map((group, gIdx) => (
+            {[...DATASET_GROUPS, ...dynamicGroups].map((group, gIdx) => (
               <div key={gIdx} style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, padding: '20px', marginBottom: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -933,29 +986,118 @@ const DataSyncPage = ({ sourceState, sourceActions, platformData }) => {
               <p style={{ fontSize: '12px', color: COLORS.muted }}>Traga dados de ferramentas de marketing de volta para o Data Warehouse para segmentação e relatórios avançados.</p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
-              {INGEST_SOURCES.map((src, i) => (
-                <div key={i} style={{ padding: '20px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, cursor: 'pointer', transition: 'all 0.2s' }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = src.color; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.transform = 'translateY(0)'; }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: src.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '700', color: src.color }}>{src.icon}</div>
-                    <div>
-                      <div style={{ fontSize: '14px', fontWeight: '700', color: '#000' }}>{src.name}</div>
-                      <div style={{ fontSize: '11px', color: COLORS.muted }}>{src.desc}</div>
+              {INGEST_SOURCES.map((src, i) => {
+                const connected = ingestConnected[src.name];
+                return (
+                  <div key={i} onClick={() => !connected && handleIngestConnect(src)} style={{ padding: '20px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${connected ? COLORS.success + '40' : COLORS.border}`, boxShadow: COLORS.shadow, cursor: connected ? 'default' : 'pointer', transition: 'all 0.2s' }}
+                    onMouseEnter={e => { if (!connected) { e.currentTarget.style.borderColor = src.color; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = connected ? COLORS.success + '40' : COLORS.border; e.currentTarget.style.transform = 'translateY(0)'; }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                      <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: src.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '700', color: src.color }}>{src.icon}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '14px', fontWeight: '700', color: '#000' }}>{src.name}</div>
+                        <div style={{ fontSize: '11px', color: COLORS.muted }}>{src.desc}</div>
+                      </div>
+                      {connected && <Check size={16} color={COLORS.success} />}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', color: COLORS.muted }}>{connected ? 'Sync ativo • Diário' : 'Sync diário'}</span>
+                      {connected ? <Badge color="green" variant="soft">Conectado</Badge> : <span style={{ padding: '6px 14px', fontSize: '11px', fontWeight: '600', border: `1px solid ${src.color}40`, borderRadius: '6px', backgroundColor: 'transparent', color: src.color }}>Conectar</span>}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '11px', color: COLORS.muted }}>Sync diário</span>
-                    <button style={{ padding: '6px 14px', fontSize: '11px', fontWeight: '600', border: `1px solid ${src.color}40`, borderRadius: '6px', backgroundColor: 'transparent', color: src.color, cursor: 'pointer' }}>Conectar</button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div style={{ padding: '16px', backgroundColor: COLORS.bgBlue, borderRadius: '8px', fontSize: '12px', color: COLORS.primary }}>
               <strong>Zero-Copy Architecture:</strong> Dados de marketing são ingeridos diretamente no seu Data Warehouse via pipelines automatizados. Sem movimentação de dados desnecessária — apenas atualizações incrementais.
             </div>
           </div>
         )}
+
+        {/* Ingest Wizard Modal */}
+        <Modal isOpen={!!ingestWizard} title={ingestWizard ? `Conectar ${ingestWizard.name}` : ''} onClose={() => setIngestWizard(null)}>
+          {ingestWizard && ingestStep === 0 && !ingestConnecting && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', padding: '16px', backgroundColor: COLORS.lightGray, borderRadius: '10px' }}>
+                <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: ingestWizard.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: '700', color: ingestWizard.color }}>{ingestWizard.icon}</div>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: '700', color: '#000' }}>{ingestWizard.name}</div>
+                  <div style={{ fontSize: '12px', color: COLORS.muted }}>{ingestWizard.desc}</div>
+                </div>
+              </div>
+              <p style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '16px' }}>Autentique sua conta para que a Revfy possa ingerir dados de performance (impressões, cliques, conversões, custos) diretamente no seu Data Warehouse.</p>
+              {ingestWizard.authFields.map((field, i) => (
+                <div key={i} style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>{field}</label>
+                  <input type={field.toLowerCase().includes('token') || field.toLowerCase().includes('secret') || field.toLowerCase().includes('key') ? 'password' : 'text'} placeholder={`Inserir ${field}`} style={{ width: '100%', padding: '9px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px', backgroundColor: COLORS.lightGray, boxSizing: 'border-box', outline: 'none' }} onFocus={e => e.target.style.borderColor = ingestWizard.color} onBlur={e => e.target.style.borderColor = COLORS.border} />
+                </div>
+              ))}
+              <button onClick={handleIngestAuth} style={{ width: '100%', padding: '12px', backgroundColor: ingestWizard.color, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', marginTop: '8px' }}>Autenticar e Conectar</button>
+              <div style={{ marginTop: '10px', padding: '8px 12px', backgroundColor: `${COLORS.success}10`, borderRadius: '6px', fontSize: '11px', color: COLORS.muted }}>
+                <strong style={{ color: COLORS.success }}>Segurança:</strong> Credenciais criptografadas com AES-256. Dados fluem diretamente para o seu warehouse — a Revfy nunca armazena dados de campanha.
+              </div>
+            </div>
+          )}
+          {ingestWizard && ingestStep === 0 && ingestConnecting && (
+            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+              <div style={{ width: '48px', height: '48px', border: `4px solid ${COLORS.border}`, borderTopColor: ingestWizard.color, borderRadius: '50%', margin: '0 auto 20px', animation: 'spin 1s linear infinite' }} />
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#000', marginBottom: '8px' }}>Conectando a {ingestWizard.name}...</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: '280px', margin: '16px auto 0' }}>
+                {['Validando credenciais...', 'Listando ad accounts...', 'Verificando permissões...'].map((s, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: COLORS.lightGray, borderRadius: '6px', fontSize: '12px', color: '#000' }}>
+                    <div style={{ width: '14px', height: '14px', border: `2px solid ${COLORS.border}`, borderTopColor: ingestWizard.color, borderRadius: '50%', animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+                    {s}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {ingestWizard && ingestStep === 1 && (
+            <div>
+              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: `${COLORS.success}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                  <Check size={28} color={COLORS.success} />
+                </div>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', color: COLORS.success }}>Autenticação bem-sucedida</h3>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '6px' }}>Conta / Propriedade</label>
+                <select style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px' }}>
+                  <option>Revfy Electoral — Conta Principal</option>
+                  <option>Revfy Electoral — Conta Teste</option>
+                </select>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '6px' }}>Destino no Warehouse</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <select style={{ padding: '8px 10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '12px' }}>
+                    <option>REVFY_PROD</option>
+                  </select>
+                  <select style={{ padding: '8px 10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '12px' }}>
+                    <option>INGEST.{ingestWizard.name.toLowerCase().replace(/\s+/g, '_')}</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '6px' }}>Frequência de Ingestão</label>
+                <select style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px' }}>
+                  <option>Diária (recomendado)</option><option>A cada 6 horas</option><option>Horária</option>
+                </select>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '6px' }}>Dados a Ingerir</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {['Campanhas e Ad Sets', 'Métricas de Performance (impressões, cliques, CTR)', 'Custos e ROAS', 'Conversões e Atribuição'].map((item, i) => (
+                    <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: COLORS.lightGray, borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
+                      <input type="checkbox" defaultChecked style={{ width: '14px', height: '14px' }} /> {item}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <button onClick={handleIngestFinish} style={{ width: '100%', padding: '12px', backgroundColor: COLORS.success, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Ativar Ingestão</button>
+            </div>
+          )}
+        </Modal>
 
         {activeTab === 'logs' && (
           <div>
@@ -1315,6 +1457,159 @@ const DataSyncPage = ({ sourceState, sourceActions, platformData }) => {
           </div>
         </div>
         <button onClick={() => { setShowUploadModal(false); sourceActions.handleUploadCSV(); }} style={{ width: '100%', padding: '12px', backgroundColor: COLORS.success, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Importar Arquivos</button>
+      </Modal>
+
+      {/* Dataset Group Creation Wizard */}
+      <Modal isOpen={showGroupWizard} title="Criar Novo Dataset Group" onClose={() => { setShowGroupWizard(false); setGroupWizardStep(0); }}>
+        {groupWizardStep === 0 && (
+          <div>
+            <p style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '16px' }}>Um Dataset Group define um universo de tabelas que se conectam via joins. Cada grupo tem uma tabela primária que determina o nível de granularidade (ex: 1 eleitor, 1 domicílio).</p>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Nome do Grupo</label>
+              <input type="text" value={newGroupName} onChange={e => setNewGroupName(e.target.value)} placeholder="Ex: Eleitores Nordeste, Prospects..." style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Descrição</label>
+              <input type="text" value={newGroupDesc} onChange={e => setNewGroupDesc(e.target.value)} placeholder="Breve descrição do universo de dados" style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Nível de Granularidade</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {['Individual', 'Domicílio', 'Empresa', 'Custom'].map(g => (
+                  <button key={g} onClick={() => setNewGroupGranularity(g)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: `1px solid ${newGroupGranularity === g ? COLORS.primary : COLORS.border}`, backgroundColor: newGroupGranularity === g ? COLORS.bgBlue : 'transparent', color: newGroupGranularity === g ? COLORS.primary : COLORS.muted, fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>{g}</button>
+                ))}
+              </div>
+            </div>
+            <button onClick={() => { if (newGroupName) setGroupWizardStep(1); }} disabled={!newGroupName} style={{ width: '100%', padding: '12px', backgroundColor: newGroupName ? COLORS.primary : COLORS.border, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: newGroupName ? 'pointer' : 'default', marginTop: '8px' }}>Continuar — Selecionar Tabela Primária</button>
+          </div>
+        )}
+        {groupWizardStep === 1 && (
+          <div>
+            <div style={{ padding: '10px 14px', backgroundColor: COLORS.bgBlue, borderRadius: '8px', marginBottom: '16px', fontSize: '12px', color: COLORS.primary }}>
+              <strong>{newGroupName}</strong> — {newGroupGranularity}
+            </div>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Source Connection</label>
+              <select style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px' }}>
+                <option>Snowflake — REVFY_PROD</option>
+                <option>BigQuery — revfy-analytics</option>
+                {platformData.activeSourceNames.filter(n => n !== 'Upload CSV' && n !== 'Revfy Pixel').map(n => <option key={n}>{n}</option>)}
+              </select>
+            </div>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Tabela Primária</label>
+              <select value={newGroupPrimary} onChange={e => setNewGroupPrimary(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.primary}40`, borderRadius: '8px', fontSize: '13px', fontWeight: '600' }}>
+                <option value="">Selecione a tabela base...</option>
+                {['eleitores_360', 'perfis_enriquecidos', 'domicilios_ibge', 'prospects_digital', 'bq_contacts', 'bq_segments_ml'].map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <div style={{ fontSize: '11px', color: COLORS.muted, marginTop: '4px' }}>Esta tabela define o que significa "1 registro" neste grupo (ex: 1 eleitor).</div>
+            </div>
+            {newGroupPrimary && (
+              <div style={{ padding: '10px 14px', backgroundColor: `${COLORS.success}10`, borderRadius: '8px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                <Check size={14} color={COLORS.success} />
+                <span style={{ fontWeight: '600', color: COLORS.success }}>Tabela "{newGroupPrimary}" selecionada como primária</span>
+              </div>
+            )}
+            <button onClick={handleCreateGroup} disabled={!newGroupPrimary} style={{ width: '100%', padding: '12px', backgroundColor: newGroupPrimary ? COLORS.success : COLORS.border, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: newGroupPrimary ? 'pointer' : 'default' }}>Criar Dataset Group</button>
+            <button onClick={() => setGroupWizardStep(0)} style={{ width: '100%', marginTop: '8px', padding: '10px', backgroundColor: 'transparent', color: COLORS.muted, border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>← Voltar</button>
+          </div>
+        )}
+      </Modal>
+
+      {/* Dataset Creation Wizard */}
+      <Modal isOpen={showDatasetWizard} title="Criar Novo Dataset" onClose={() => { setShowDatasetWizard(false); setDatasetWizardStep(0); }}>
+        {datasetWizardStep === 0 && (
+          <div>
+            <p style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '16px' }}>Um Dataset é uma tabela individual que será conectada a um Dataset Group via join. Pode ser uma tabela de eventos, transações, ou scores de ML.</p>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Dataset Group de Destino</label>
+              <select value={newDsGroup} onChange={e => setNewDsGroup(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px' }}>
+                <option value="">Selecione o grupo...</option>
+                {[...DATASET_GROUPS, ...dynamicGroups].map(g => <option key={g.name} value={g.name}>{g.name}</option>)}
+              </select>
+            </div>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Tipo do Dataset</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {['Events', 'Transactions', 'ML Scores', 'Reference'].map(t => (
+                  <button key={t} onClick={() => setNewDsType(t)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: `1px solid ${newDsType === t ? COLORS.primary : COLORS.border}`, backgroundColor: newDsType === t ? COLORS.bgBlue : 'transparent', color: newDsType === t ? COLORS.primary : COLORS.muted, fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>{t}</button>
+                ))}
+              </div>
+            </div>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Source Connection</label>
+              <select value={newDsSource} onChange={e => setNewDsSource(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px' }}>
+                <option value="">Selecione a fonte...</option>
+                {platformData.activeSourceNames.map(n => <option key={n} value={n}>{n}</option>)}
+                <option value="Snowflake">Snowflake</option>
+                <option value="BigQuery">BigQuery</option>
+              </select>
+            </div>
+            <button onClick={() => { if (newDsGroup && newDsSource) setDatasetWizardStep(1); }} disabled={!newDsGroup || !newDsSource} style={{ width: '100%', padding: '12px', backgroundColor: (newDsGroup && newDsSource) ? COLORS.primary : COLORS.border, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: (newDsGroup && newDsSource) ? 'pointer' : 'default', marginTop: '8px' }}>Continuar — Selecionar Tabela</button>
+          </div>
+        )}
+        {datasetWizardStep === 1 && (
+          <div>
+            <div style={{ padding: '10px 14px', backgroundColor: COLORS.bgBlue, borderRadius: '8px', marginBottom: '16px', fontSize: '12px', color: COLORS.primary, display: 'flex', justifyContent: 'space-between' }}>
+              <span><strong>Grupo:</strong> {newDsGroup}</span>
+              <span><strong>Tipo:</strong> {newDsType}</span>
+              <span><strong>Fonte:</strong> {newDsSource}</span>
+            </div>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Tabela / View</label>
+              <select value={newDsTable} onChange={e => setNewDsTable(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.primary}40`, borderRadius: '8px', fontSize: '13px', fontWeight: '600' }}>
+                <option value="">Selecione...</option>
+                {(SCHEMA_TABLES[newDsSource] || SCHEMA_TABLES.Snowflake).tables.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            {newDsTable && (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Chave Única</label>
+                    <select value={newDsKey} onChange={e => setNewDsKey(e.target.value)} style={{ width: '100%', padding: '8px 10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '12px' }}>
+                      <option value="">Selecione...</option>
+                      <option value="id">id</option>
+                      <option value="event_id">event_id</option>
+                      <option value="transaction_id">transaction_id</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Cardinalidade do Join</label>
+                    <select value={newDsCardinality} onChange={e => setNewDsCardinality(e.target.value)} style={{ width: '100%', padding: '8px 10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '12px' }}>
+                      <option value="many-to-one">Many-to-One</option>
+                      <option value="one-to-one">One-to-One</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Chave de Join (com tabela primária)</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', backgroundColor: COLORS.lightGray, borderRadius: '8px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '10px', color: COLORS.muted, marginBottom: '2px' }}>{newDsTable}</div>
+                      <select value={newDsJoinKey} onChange={e => setNewDsJoinKey(e.target.value)} style={{ width: '100%', padding: '6px 8px', border: `1px solid ${COLORS.border}`, borderRadius: '4px', fontSize: '11px' }}>
+                        <option value="">Chave...</option>
+                        <option value="eleitor_id">eleitor_id</option>
+                        <option value="user_id">user_id</option>
+                        <option value="customer_id">customer_id</option>
+                      </select>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: COLORS.primary, padding: '4px 8px', backgroundColor: COLORS.bgBlue, borderRadius: '4px' }}>=</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '10px', color: COLORS.muted, marginBottom: '2px' }}>Primary table</div>
+                      <select style={{ width: '100%', padding: '6px 8px', border: `1px solid ${COLORS.border}`, borderRadius: '4px', fontSize: '11px' }}>
+                        <option>eleitor_id</option>
+                        <option>user_id</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <button onClick={handleCreateDataset} disabled={!newDsTable} style={{ width: '100%', padding: '12px', backgroundColor: newDsTable ? COLORS.success : COLORS.border, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: newDsTable ? 'pointer' : 'default' }}>Criar Dataset</button>
+            <button onClick={() => setDatasetWizardStep(0)} style={{ width: '100%', marginTop: '8px', padding: '10px', backgroundColor: 'transparent', color: COLORS.muted, border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>← Voltar</button>
+          </div>
+        )}
       </Modal>
     </div>
   );
@@ -2474,7 +2769,6 @@ export default function RevfyTrustHubDemo() {
       case 'governanca': return <GovernancaPage />;
       case 'investimento': return <InvestimentoPage />;
       case 'coligados': return <ColigadosPage />;
-      case 'integracoes': return <IntegracoesPage />;
       case 'usuarios': return <UsuariosPage />;
       case 'calendario': return <CalendarioPage />;
       default: return <OverviewPage platformData={platformData} />;
