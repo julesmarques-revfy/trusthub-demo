@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Home, Database, Table2, Users, Send, RefreshCw, Brain, Shield, DollarSign, Building2, Plug, UserCog, Calendar, Plus, Trash2, MoreVertical, Check, AlertCircle, Snowflake, Link2, Cloud, FileSpreadsheet, Cog, Radio, TrendingUp, Zap, UserPlus, FileText, ShieldCheck, Wrench, ClipboardList, Megaphone, Ban, Search, Archive, BarChart3, Pause, Play, CircleDot, Upload, FolderSync, Webhook, ChevronRight, Activity, Target, Eye, FileDown } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
@@ -47,9 +47,67 @@ const NAVIGATION = [
   }
 ];
 
+// Deterministic seeded pseudo-random generator for stable data
+const seededRandom = (seed) => {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+};
+
+const generateSourceDatasets = (sourceName) => {
+  const seed = sourceName.charCodeAt(0) * sourceName.charCodeAt(sourceName.length - 1);
+  const count = 3 + Math.floor(seededRandom(seed) * 4);
+  const datasets = [];
+
+  for (let i = 0; i < count; i++) {
+    const datasetNames = {
+      'BigQuery': ['bq_contacts', 'bq_transactions', 'bq_campaign_events', 'bq_segments_ml', 'bq_customer_360'],
+      'Snowflake': ['sf_customers', 'sf_events', 'sf_transactions', 'sf_segments'],
+      'HubSpot': ['hubspot_contacts', 'hubspot_companies', 'hubspot_deals'],
+      'Salesforce': ['sf_leads', 'sf_accounts', 'sf_opportunities'],
+      'Redshift': ['rs_analytics', 'rs_events', 'rs_customers'],
+      'PostgreSQL': ['pg_users', 'pg_orders', 'pg_events', 'pg_segments'],
+      'MySQL': ['mysql_products', 'mysql_sales', 'mysql_customers', 'mysql_logs'],
+      'Google Sheets': ['gs_import_1', 'gs_import_2'],
+      'API REST': ['api_users', 'api_events'],
+      'Webhook': ['webhook_events', 'webhook_logs'],
+      'SFTP': ['sftp_upload_1', 'sftp_upload_2'],
+    };
+
+    const names = datasetNames[sourceName] || [`${sourceName.toLowerCase()}_data_${i}`];
+    const name = names[i % names.length];
+    const recordCounts = {
+      'BigQuery': [1203847, 847293, 2341567, 1567890, 923456],
+      'Snowflake': [1203847, 923456, 847293, 1456789],
+      'HubSpot': [1200532, 156234, 89234],
+      'Salesforce': [845231, 567890, 234567],
+      'Redshift': [980000, 654321, 789012],
+      'PostgreSQL': [520000, 387654, 456789, 234567],
+      'MySQL': [310000, 245678, 198765, 145632],
+      'Google Sheets': [15000, 8500],
+      'API REST': [312104],
+      'Webhook': [89000, 45600],
+      'SFTP': [78000, 42300],
+    };
+
+    const records = recordCounts[sourceName]?.[i] || Math.floor(seededRandom(seed + i) * 1000000);
+
+    datasets.push({
+      nome: name,
+      fonte: sourceName,
+      tipo: i === 0 ? 'Tabela' : i === 1 ? 'Evento' : 'Dados',
+      registros: records.toLocaleString(),
+      atualizacao: ['Tempo real', 'Horária', 'Diária', 'A cada 6h'][Math.floor(seededRandom(seed + i) * 4)],
+      qualidade: (91 + Math.floor(seededRandom(seed + i * 2) * 9)) + '%',
+      status: 'Ativo'
+    });
+  }
+
+  return datasets;
+};
+
 const MOCK_DATA = {
   kpis: [
-    { label: 'Registros no DCR', value: '1,203,847', change: '+12.4%', icon: 'database' },
+    { label: 'Registros no DCR', value: '0', change: '+0', icon: 'database', computed: true },
     { label: 'Audiências Ativas', value: '12', change: '+3', icon: 'users' },
     { label: 'Canais Conectados', value: '4/4', change: '100%', icon: 'link' },
     { label: 'Score Compliance', value: '94%', change: '+2.1%', icon: 'shield' },
@@ -73,13 +131,10 @@ const MOCK_DATA = {
     { id: 4, name: 'Base Inativa 90d', size: 123456, status: 'Rascunho', created: '2026-03-20' },
   ],
   datasets: [
-    { nome: 'Contatos HubSpot', fonte: 'HubSpot', tipo: 'CRM', registros: '1,203,847', atualizacao: 'Diária', qualidade: '98%', status: 'Ativo' },
-    { nome: 'Leads Salesforce', fonte: 'Salesforce', tipo: 'CRM', registros: '845,231', atualizacao: 'A cada 6h', qualidade: '97%', status: 'Ativo' },
-    { nome: 'Conversões Web', fonte: 'Snowflake', tipo: 'Evento', registros: '847,293', atualizacao: 'Tempo real', qualidade: '99%', status: 'Ativo' },
-    { nome: 'Audiência Indecisos', fonte: 'Blended', tipo: 'Modelo', registros: '2,341,567', atualizacao: 'Horária', qualidade: '96%', status: 'Ativo' },
     { nome: 'Upload Março', fonte: 'CSV', tipo: 'Arquivo', registros: '45,231', atualizacao: 'Manual', qualidade: '91%', status: 'Revisão' },
-    { nome: 'Lookalike Sudeste', fonte: 'RevFy IQ', tipo: 'ML', registros: '1,567,890', atualizacao: 'Diária', qualidade: '94%', status: 'Ativo' },
     { nome: 'revfy_events', fonte: 'Revfy Pixel', tipo: 'Native', registros: '3,100,000', atualizacao: 'Tempo real', qualidade: '99%', status: 'Ativo' },
+    { nome: 'Audiência Indecisos', fonte: 'Blended', tipo: 'Modelo', registros: '2,341,567', atualizacao: 'Horária', qualidade: '96%', status: 'Ativo' },
+    { nome: 'Lookalike Sudeste', fonte: 'RevFy IQ', tipo: 'ML', registros: '1,567,890', atualizacao: 'Diária', qualidade: '94%', status: 'Ativo' },
   ],
   syncs: [
     { id: 1, audiencia: 'Segmento SP 25-44', destino: 'Meta', modo: 'Upsert', records: 847293, frequencia: 'Diária', lastRun: 'Há 2h', status: 'Sucesso' },
@@ -225,7 +280,6 @@ const SourceCard = ({ source, onConnect, onAction }) => {
   };
   const cfg = statusConfig[status] || statusConfig['Desconectado'];
 
-  // Menu items per state
   const menuItems = [];
   if (isActive || status === 'Conectado') {
     menuItems.push({ label: 'Pausar', action: 'pause', icon: Pause },
@@ -258,7 +312,6 @@ const SourceCard = ({ source, onConnect, onAction }) => {
       onMouseEnter={(e) => { e.currentTarget.style.borderColor = COLORS.primary; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,.1)'; }}
       onMouseLeave={(e) => { e.currentTarget.style.borderColor = isNative ? COLORS.primary + '40' : isPaused ? '#FFA50040' : COLORS.border; e.currentTarget.style.boxShadow = COLORS.shadow; setMenuOpen(false); }}>
 
-      {/* 3-dot menu - appears on ALL source cards */}
       {(menuItems.length > 0 || !isLoading) && (
         <div style={{ position: 'absolute', top: '12px', right: '12px' }}>
           <button onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px', borderRadius: '4px', color: COLORS.muted, fontSize: '18px', lineHeight: 1 }}
@@ -302,62 +355,90 @@ const SourceCard = ({ source, onConnect, onAction }) => {
   );
 };
 
-const Modal = ({ isOpen, title, children, onClose }) => {
-  if (!isOpen) return null;
-  return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', width: '90%', maxWidth: '600px', maxHeight: '90vh', overflow: 'auto', padding: '32px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>{title}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: COLORS.muted }}>×</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-};
-
 const Sidebar = ({ currentPage, onNavigate }) => (
-  <div style={{ width: '246px', backgroundColor: COLORS.cardBg, borderTopRightRadius: '16px', borderBottomRightRadius: '16px', boxShadow: COLORS.shadow, padding: '24px 0', height: '100vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-    <div style={{ padding: '0 20px', marginBottom: '32px' }}>
-      <div style={{ fontSize: '20px', fontWeight: '700', letterSpacing: '-0.5px' }}><span style={{ color: COLORS.darkBlue }}>revfy</span><span style={{ color: COLORS.cyan }}>.</span></div>
+  <div style={{ width: '240px', backgroundColor: '#fff', borderRight: `1px solid ${COLORS.border}`, overflowY: 'auto', display: 'flex', flexDirection: 'column', height: '100vh', boxShadow: '2px 0 8px rgba(0,0,0,.04)' }}>
+    <div style={{ padding: '24px 20px', borderBottom: `1px solid ${COLORS.border}`, display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => onNavigate('overview')}>
+      <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: COLORS.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: '700', fontSize: '16px' }}>R</div>
+      <div><div style={{ fontSize: '14px', fontWeight: '700', color: '#000' }}>Revfy</div><div style={{ fontSize: '11px', color: COLORS.muted }}>Trust Hub</div></div>
     </div>
-    <div style={{ flex: 1, overflow: 'auto' }}>
+    <div style={{ flex: 1, padding: '16px 0', overflowY: 'auto' }}>
       {NAVIGATION.map((section, idx) => (
-        <div key={idx} style={{ marginBottom: '24px' }}>
-          <div style={{ fontSize: '11px', fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', padding: '0 20px', marginBottom: '12px', letterSpacing: '0.5px' }}>{section.section}</div>
+        <div key={idx} style={{ marginBottom: '16px' }}>
+          <div style={{ padding: '0 16px', fontSize: '11px', fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', marginBottom: '8px' }}>{section.section}</div>
           {section.items.map((item) => {
             const IconComponent = item.icon;
-            const isActive = currentPage === item.id;
             return (
-              <button key={item.id} onClick={() => onNavigate(item.id)} style={{ width: '100%', padding: '12px 20px', background: isActive ? COLORS.bgBlue : 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', color: isActive ? COLORS.primary : '#000', fontSize: '14px', fontWeight: isActive ? '600' : '500', transition: 'all 0.2s ease' }}
-                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = 'rgba(0,0,0,0.02)'; }}
-                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                <IconComponent size={18} />{item.label}
+              <button key={item.id} onClick={() => onNavigate(item.id)} style={{ width: 'calc(100% - 20px)', margin: '0 10px', padding: '8px 10px', border: 'none', background: 'none', cursor: 'pointer', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: currentPage === item.id ? '600' : '400', color: currentPage === item.id ? COLORS.primary : '#000', backgroundColor: currentPage === item.id ? COLORS.bgBlue : 'transparent', transition: 'all 0.2s' }}
+                onMouseEnter={(e) => { if (currentPage !== item.id) e.currentTarget.style.backgroundColor = COLORS.lightGray; }}
+                onMouseLeave={(e) => { if (currentPage !== item.id) e.currentTarget.style.backgroundColor = 'transparent'; }}>
+                <IconComponent size={16} />
+                {item.label}
               </button>
             );
           })}
         </div>
       ))}
     </div>
-    <div style={{ padding: '20px', borderTop: `1px solid ${COLORS.border}` }}>
-      <div style={{ padding: '12px', backgroundColor: COLORS.bgBlue, borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.cyan})`, flexShrink: 0 }} />
-        <div style={{ fontSize: '13px', minWidth: 0 }}>
-          <div style={{ fontWeight: '600', color: '#000', overflow: 'hidden', textOverflow: 'ellipsis' }}>jules.marques</div>
-          <div style={{ fontSize: '11px', color: COLORS.muted, overflow: 'hidden', textOverflow: 'ellipsis' }}>julesmarques@revfy.io</div>
-        </div>
-      </div>
-    </div>
   </div>
 );
 
-const OverviewPage = () => (
+const Modal = ({ isOpen, title, children, onClose }) => {
+  if (!isOpen) return null;
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+      <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', boxShadow: '0 20px 60px rgba(0,0,0,.3)', width: '90%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ padding: '24px', borderBottom: `1px solid ${COLORS.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, backgroundColor: COLORS.cardBg, zIndex: 101 }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', color: '#000', margin: 0 }}>{title}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: COLORS.muted }}>×</button>
+        </div>
+        <div style={{ padding: '24px' }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SOURCE_CATALOG = [
+  { name: 'Snowflake', category: 'ETL', auth: 'credentials', fields: ['Account URL', 'Warehouse', 'Database', 'Schema', 'Username', 'Password'] },
+  { name: 'BigQuery', category: 'ETL', auth: 'credentials', fields: ['Project ID', 'Dataset', 'Service Account Email', 'Private Key (JSON)'] },
+  { name: 'HubSpot', category: 'ETL', auth: 'oauth', fields: [] },
+  { name: 'Salesforce', category: 'ETL', auth: 'oauth', fields: [] },
+  { name: 'Redshift', category: 'ETL', auth: 'credentials', fields: ['Host', 'Port', 'Database', 'Username', 'Password'] },
+  { name: 'PostgreSQL', category: 'ETL', auth: 'credentials', fields: ['Host', 'Port', 'Database', 'Username', 'Password'] },
+  { name: 'MySQL', category: 'ETL', auth: 'credentials', fields: ['Host', 'Port', 'Database', 'Username', 'Password'] },
+  { name: 'Google Sheets', category: 'ETL', auth: 'oauth', fields: [] },
+  { name: 'API REST', category: 'API', auth: 'credentials', fields: ['Base URL', 'API Key', 'Header Auth'] },
+  { name: 'Webhook', category: 'API', auth: 'credentials', fields: ['Endpoint URL', 'Secret Token'] },
+  { name: 'CSV Upload', category: 'CSV', auth: 'none', fields: [] },
+  { name: 'SFTP', category: 'CSV', auth: 'credentials', fields: ['Host', 'Port', 'Username', 'Password', 'Remote Path'] },
+];
+
+const SOURCE_CONNECTED_DATA = {
+  'Snowflake': { type: 'Data Warehouse', extra: '1,203,847 registros • 4 tabelas', lastSync: '2min atrás', color: '#E8F4FF', log: { source: 'Snowflake', records: '1,203,847', duration: '2m 14s', time: '25/03 14:32', status: 'Sucesso' } },
+  'BigQuery': { type: 'Data Warehouse (GCP)', extra: '2.4M registros • 6 tabelas', lastSync: '5min atrás', color: '#EEF1FF', log: { source: 'BigQuery', records: '2,400,000', duration: '3m 05s', time: '25/03 13:10', status: 'Sucesso' } },
+  'HubSpot': { type: 'CRM (OAuth)', extra: '1,200,532 contatos • 3 objetos', lastSync: '3min atrás', color: '#FFF3E8', log: { source: 'HubSpot', records: '1,200,532', duration: '3m 42s', time: '25/03 12:15', status: 'Sucesso' } },
+  'Salesforce': { type: 'CRM (OAuth)', extra: '845,231 leads • 2 objetos', lastSync: '10min atrás', color: '#E8F0FF', log: { source: 'Salesforce', records: '845,231', duration: '4m 08s', time: '25/03 10:00', status: 'Sucesso' } },
+  'Redshift': { type: 'Data Warehouse', extra: '980K registros • 3 tabelas', lastSync: '8min atrás', color: '#FFE8E8', log: { source: 'Redshift', records: '980,000', duration: '1m 55s', time: '25/03 11:45', status: 'Sucesso' } },
+  'PostgreSQL': { type: 'Database', extra: '520K registros • 5 tabelas', lastSync: '6min atrás', color: '#E8F8FF', log: { source: 'PostgreSQL', records: '520,000', duration: '1m 12s', time: '25/03 09:30', status: 'Sucesso' } },
+  'MySQL': { type: 'Database', extra: '310K registros • 4 tabelas', lastSync: '12min atrás', color: '#FFF8E8', log: { source: 'MySQL', records: '310,000', duration: '0m 48s', time: '25/03 08:00', status: 'Sucesso' } },
+  'Google Sheets': { type: 'Planilha (OAuth)', extra: '15K registros • 2 sheets', lastSync: '1min atrás', color: '#E8FFE8', log: { source: 'Google Sheets', records: '15,000', duration: '0m 05s', time: '25/03 14:00', status: 'Sucesso' } },
+  'API REST': { type: 'API Endpoint', extra: '312K registros', lastSync: '4min atrás', color: '#F0E8FF', log: { source: 'API REST', records: '312,104', duration: '1m 22s', time: '25/03 14:32', status: 'Sucesso' } },
+  'Webhook': { type: 'Webhook Endpoint', extra: '89K eventos', lastSync: 'Tempo real', color: '#FFE8F8', log: { source: 'Webhook', records: '89,000', duration: '—', time: 'Tempo real', status: 'Ativo' } },
+  'SFTP': { type: 'Arquivo Remoto', extra: '78K registros • 4 arquivos', lastSync: '1h atrás', color: '#F5F0E8', log: { source: 'SFTP', records: '78,000', duration: '0m 32s', time: '25/03 07:00', status: 'Sucesso' } },
+};
+
+const INGESTION_LOG = [
+  { source: 'Upload CSV', records: '45,231', duration: '0m 18s', time: '24/03 09:15', status: 'Sucesso' },
+  { source: 'Revfy Pixel', records: '3,100,000', duration: '—', time: 'Tempo real', status: 'Ativo' },
+];
+
+const OverviewPage = ({ platformData }) => (
   <div style={{ flex: 1, overflowY: 'auto' }}>
     <div style={{ padding: '32px' }}>
       <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '32px', color: '#000' }}>Overview</h1>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '40px' }}>
-        {MOCK_DATA.kpis.map((kpi, idx) => (<KPICard key={idx} {...kpi} />))}
+        {platformData.kpis.map((kpi, idx) => (<KPICard key={idx} {...kpi} />))}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '32px' }}>
         <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
@@ -371,16 +452,7 @@ const OverviewPage = () => (
         <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
           <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', color: '#000' }}>Atividade Recente</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
-            {[
-              { action: 'Audiência ativada', detail: 'Segmento SP 25-44 → Meta', time: 'Há 2h' },
-              { action: 'Dataset sincronizado', detail: 'HubSpot CRM (1.2M registros)', time: 'Há 4h' },
-              { action: 'Novo usuário adicionado', detail: 'Ana Costa (Parceiro)', time: 'Há 6h' },
-              { action: 'Relatório compliance exportado', detail: 'Governança Q1 2026', time: 'Há 1d' },
-              { action: 'Threshold compliance atingido', detail: 'Score 94% (+2.1%)', time: 'Há 1d' },
-              { action: 'Nova fonte conectada', detail: 'HubSpot CRM (OAuth)', time: 'Há 2d' },
-              { action: 'Sync com falha detectada', detail: 'TikTok (timeout na API)', time: 'Há 2d' },
-              { action: 'Blacklist atualizada', detail: '12 novos sites bloqueados', time: 'Há 3d' },
-            ].map((activity, idx) => (
+            {platformData.recentActivity.map((activity, idx) => (
               <div key={idx} style={{ padding: '12px', backgroundColor: COLORS.lightGray, borderRadius: '8px', borderLeft: `3px solid ${COLORS.primary}` }}>
                 <div style={{ fontWeight: '600', color: '#000', marginBottom: '2px' }}>{activity.action}</div>
                 <div style={{ color: COLORS.muted, fontSize: '12px' }}>{activity.detail} • {activity.time}</div>
@@ -401,50 +473,7 @@ const OverviewPage = () => (
   </div>
 );
 
-const SOURCE_CATALOG = [
-  { name: 'Snowflake', category: 'ETL', auth: 'credentials', fields: ['Account URL', 'Warehouse', 'Database', 'Schema', 'Username', 'Password'] },
-  { name: 'BigQuery', category: 'ETL', auth: 'credentials', fields: ['Project ID', 'Dataset', 'Service Account Email', 'Private Key (JSON)'] },
-  { name: 'HubSpot', category: 'ETL', auth: 'oauth', fields: [] },
-  { name: 'Salesforce', category: 'ETL', auth: 'oauth', fields: [] },
-  { name: 'Redshift', category: 'ETL', auth: 'credentials', fields: ['Host', 'Port', 'Database', 'Username', 'Password'] },
-  { name: 'PostgreSQL', category: 'ETL', auth: 'credentials', fields: ['Host', 'Port', 'Database', 'Username', 'Password'] },
-  { name: 'MySQL', category: 'ETL', auth: 'credentials', fields: ['Host', 'Port', 'Database', 'Username', 'Password'] },
-  { name: 'Google Sheets', category: 'ETL', auth: 'oauth', fields: [] },
-  { name: 'API REST', category: 'API', auth: 'credentials', fields: ['Base URL', 'API Key', 'Header Auth'] },
-  { name: 'Webhook', category: 'API', auth: 'credentials', fields: ['Endpoint URL', 'Secret Token'] },
-  { name: 'CSV Upload', category: 'CSV', auth: 'none', fields: [] },
-  { name: 'SFTP', category: 'CSV', auth: 'credentials', fields: ['Host', 'Port', 'Username', 'Password', 'Remote Path'] },
-];
-
-const SOURCE_CONNECTED_DATA = {
-  'Snowflake': { type: 'Data Warehouse', extra: '1,203,847 registros • 4 tabelas', lastSync: '2min atrás', color: '#E8F4FF', datasets: [{ nome: 'Conversões Web', fonte: 'Snowflake', tipo: 'Evento', registros: '847,293', atualizacao: 'Tempo real', qualidade: '99%', status: 'Ativo' }], log: { source: 'Snowflake', records: '1,203,847', duration: '2m 14s', time: '25/03 14:32', status: 'Sucesso' } },
-  'BigQuery': { type: 'Data Warehouse (GCP)', extra: '2.4M registros • 6 tabelas', lastSync: '5min atrás', color: '#EEF1FF', datasets: [
-    { nome: 'bq_contacts', fonte: 'BigQuery', tipo: 'Tabela', registros: '1,203,847', atualizacao: 'Horária', qualidade: '99%', status: 'Ativo' },
-    { nome: 'bq_transactions', fonte: 'BigQuery', tipo: 'Tabela', registros: '847,293', atualizacao: 'Horária', qualidade: '98%', status: 'Ativo' },
-    { nome: 'bq_campaign_events', fonte: 'BigQuery', tipo: 'Evento', registros: '2,341,567', atualizacao: 'Tempo real', qualidade: '99%', status: 'Ativo' },
-    { nome: 'bq_segments_ml', fonte: 'BigQuery', tipo: 'Modelo', registros: '1,567,890', atualizacao: 'Diária', qualidade: '97%', status: 'Ativo' },
-  ], log: { source: 'BigQuery', records: '2,400,000', duration: '3m 05s', time: '25/03 13:10', status: 'Sucesso' } },
-  'HubSpot': { type: 'CRM (OAuth)', extra: '1,200,532 contatos • 3 objetos', lastSync: '3min atrás', color: '#FFF3E8', datasets: [{ nome: 'Contatos HubSpot', fonte: 'HubSpot', tipo: 'CRM', registros: '1,200,532', atualizacao: 'Diária', qualidade: '98%', status: 'Ativo' }], log: { source: 'HubSpot', records: '1,200,532', duration: '3m 42s', time: '25/03 12:15', status: 'Sucesso' } },
-  'Salesforce': { type: 'CRM (OAuth)', extra: '845,231 leads • 2 objetos', lastSync: '10min atrás', color: '#E8F0FF', datasets: [{ nome: 'Leads Salesforce', fonte: 'Salesforce', tipo: 'CRM', registros: '845,231', atualizacao: 'A cada 6h', qualidade: '97%', status: 'Ativo' }], log: { source: 'Salesforce', records: '845,231', duration: '4m 08s', time: '25/03 10:00', status: 'Sucesso' } },
-  'Redshift': { type: 'Data Warehouse', extra: '980K registros • 3 tabelas', lastSync: '8min atrás', color: '#FFE8E8', datasets: [{ nome: 'Redshift Analytics', fonte: 'Redshift', tipo: 'Warehouse', registros: '980,000', atualizacao: 'Horária', qualidade: '97%', status: 'Ativo' }], log: { source: 'Redshift', records: '980,000', duration: '1m 55s', time: '25/03 11:45', status: 'Sucesso' } },
-  'PostgreSQL': { type: 'Database', extra: '520K registros • 5 tabelas', lastSync: '6min atrás', color: '#E8F8FF', datasets: [{ nome: 'PostgreSQL Dados', fonte: 'PostgreSQL', tipo: 'Database', registros: '520,000', atualizacao: 'A cada 6h', qualidade: '96%', status: 'Ativo' }], log: { source: 'PostgreSQL', records: '520,000', duration: '1m 12s', time: '25/03 09:30', status: 'Sucesso' } },
-  'MySQL': { type: 'Database', extra: '310K registros • 4 tabelas', lastSync: '12min atrás', color: '#FFF8E8', datasets: [{ nome: 'MySQL Dados', fonte: 'MySQL', tipo: 'Database', registros: '310,000', atualizacao: 'Diária', qualidade: '95%', status: 'Ativo' }], log: { source: 'MySQL', records: '310,000', duration: '0m 48s', time: '25/03 08:00', status: 'Sucesso' } },
-  'Google Sheets': { type: 'Planilha (OAuth)', extra: '15K registros • 2 sheets', lastSync: '1min atrás', color: '#E8FFE8', datasets: [{ nome: 'Google Sheets Import', fonte: 'Google Sheets', tipo: 'Planilha', registros: '15,000', atualizacao: 'Manual', qualidade: '92%', status: 'Ativo' }], log: { source: 'Google Sheets', records: '15,000', duration: '0m 05s', time: '25/03 14:00', status: 'Sucesso' } },
-  'API REST': { type: 'API Endpoint', extra: '312K registros', lastSync: '4min atrás', color: '#F0E8FF', datasets: [{ nome: 'API REST Dados', fonte: 'API REST', tipo: 'API', registros: '312,104', atualizacao: 'Horária', qualidade: '96%', status: 'Ativo' }], log: { source: 'API REST', records: '312,104', duration: '1m 22s', time: '25/03 14:32', status: 'Sucesso' } },
-  'Webhook': { type: 'Webhook Endpoint', extra: '89K eventos', lastSync: 'Tempo real', color: '#FFE8F8', datasets: [{ nome: 'Webhook Events', fonte: 'Webhook', tipo: 'Evento', registros: '89,000', atualizacao: 'Tempo real', qualidade: '99%', status: 'Ativo' }], log: { source: 'Webhook', records: '89,000', duration: '—', time: 'Tempo real', status: 'Ativo' } },
-  'SFTP': { type: 'Arquivo Remoto', extra: '78K registros • 4 arquivos', lastSync: '1h atrás', color: '#F5F0E8', datasets: [{ nome: 'SFTP Import', fonte: 'SFTP', tipo: 'Arquivo', registros: '78,000', atualizacao: 'Diária', qualidade: '93%', status: 'Ativo' }], log: { source: 'SFTP', records: '78,000', duration: '0m 32s', time: '25/03 07:00', status: 'Sucesso' } },
-};
-
-const INGESTION_LOG = [
-  { source: 'Snowflake', records: '1,203,847', duration: '2m 14s', time: '25/03 14:32', status: 'Sucesso' },
-  { source: 'HubSpot', records: '1,200,532', duration: '3m 42s', time: '25/03 12:15', status: 'Sucesso' },
-  { source: 'Salesforce', records: '845,231', duration: '4m 08s', time: '24/03 10:00', status: 'Sucesso' },
-  { source: 'Upload CSV', records: '45,231', duration: '0m 18s', time: '24/03 09:15', status: 'Sucesso' },
-  { source: 'API REST', records: '312,104', duration: '1m 22s', time: '23/03 14:32', status: 'Sucesso' },
-  { source: 'Revfy Pixel', records: '3,100,000', duration: '—', time: 'Tempo real', status: 'Ativo' },
-];
-
-const DataSyncPage = () => {
+const DataSyncPage = ({ sourceState, sourceActions, platformData }) => {
   const [activeTab, setActiveTab] = useState('connections');
   const [showWizard, setShowWizard] = useState(false);
   const [wizardStep, setWizardStep] = useState(0);
@@ -455,13 +484,7 @@ const DataSyncPage = () => {
   const [authenticating, setAuthenticating] = useState(false);
   const [authDone, setAuthDone] = useState(false);
   const [authStage, setAuthStage] = useState(0);
-  // sourceStates: { [id]: 'Ativo' | 'Pausado' | 'Desconectado' } — overrides mock status
-  const [sourceStates, setSourceStates] = useState({});
-  const [deletedSources, setDeletedSources] = useState({});
-  const [loadingSources, setLoadingSources] = useState({});
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [dynamicSources, setDynamicSources] = useState([]);
-  const [nextId, setNextId] = useState(100);
 
   const resetWizard = () => { setShowWizard(false); setWizardStep(0); setSelectedSource(null); setTesting(false); setTestDone(false); setAuthenticating(false); setAuthDone(false); setAuthStage(0); setFilterCategory('Todos'); };
   const handleSelectSource = (source) => { setSelectedSource(source); setWizardStep(1); setAuthenticating(false); setAuthDone(false); setAuthStage(0); };
@@ -489,59 +512,9 @@ const DataSyncPage = () => {
 
   const handleSaveAndClose = () => {
     if (selectedSource) {
-      const matchedMock = MOCK_DATA.sources.find(s => s.name === selectedSource.name);
-      if (matchedMock) {
-        setLoadingSources(prev => ({ ...prev, [matchedMock.id]: true }));
-        resetWizard();
-        setTimeout(() => {
-          setLoadingSources(prev => { const n = { ...prev }; delete n[matchedMock.id]; return n; });
-          setSourceStates(prev => ({ ...prev, [matchedMock.id]: 'Ativo' }));
-        }, 3500);
-      } else {
-        // Dynamically add new source from catalog
-        const connData = SOURCE_CONNECTED_DATA[selectedSource.name];
-        const newId = nextId;
-        setNextId(prev => prev + 1);
-        const newSource = {
-          id: newId,
-          name: selectedSource.name,
-          type: connData ? connData.type : selectedSource.category,
-          status: 'Conectando...',
-          extra: '',
-          lastSync: '—',
-          color: connData ? connData.color : COLORS.cardBg,
-          connectedExtra: connData ? connData.extra : '—',
-          connectedSync: connData ? connData.lastSync : 'Agora',
-        };
-        setDynamicSources(prev => [...prev, newSource]);
-        setLoadingSources(prev => ({ ...prev, [newId]: true }));
-        resetWizard();
-        setTimeout(() => {
-          setLoadingSources(prev => { const n = { ...prev }; delete n[newId]; return n; });
-          setSourceStates(prev => ({ ...prev, [newId]: 'Ativo' }));
-        }, 3500);
-      }
+      sourceActions.handleSaveAndClose(selectedSource);
+      resetWizard();
     } else { resetWizard(); }
-  };
-
-  const handleSourceAction = (source, action) => {
-    switch (action) {
-      case 'activate': setSourceStates(prev => ({ ...prev, [source.id]: 'Ativo' })); break;
-      case 'pause': setSourceStates(prev => ({ ...prev, [source.id]: 'Pausado' })); break;
-      case 'disconnect': setSourceStates(prev => ({ ...prev, [source.id]: 'Desconectado' })); break;
-      case 'delete': setDeletedSources(prev => ({ ...prev, [source.id]: true })); break;
-      default: break;
-    }
-  };
-
-  const getSourceStatus = (source) => {
-    if (source.native) return source;
-    if (loadingSources[source.id]) return { ...source, status: 'Conectando...', extra: '', lastSync: '—' };
-    const overrideStatus = sourceStates[source.id];
-    if (overrideStatus === 'Ativo') return { ...source, status: 'Ativo', extra: source.connectedExtra, lastSync: source.connectedSync };
-    if (overrideStatus === 'Pausado') return { ...source, status: 'Pausado', extra: source.connectedExtra, lastSync: source.connectedSync };
-    if (overrideStatus === 'Desconectado') return { ...source, status: 'Desconectado', extra: '', lastSync: '—' };
-    return source;
   };
 
   const handleCardConnect = (source) => {
@@ -553,26 +526,6 @@ const DataSyncPage = () => {
 
   const filteredSources = filterCategory === 'Todos' ? SOURCE_CATALOG : SOURCE_CATALOG.filter(s => s.category === filterCategory);
   const stepLabels = ['Selecionar Fonte', 'Autenticação', 'Configurar', 'Testar'];
-  const allSources = [...MOCK_DATA.sources, ...dynamicSources];
-  const visibleSources = allSources.filter(s => !deletedSources[s.id]);
-  const activeSourceNames = visibleSources.filter(s => {
-    const resolved = getSourceStatus(s);
-    return resolved.status === 'Ativo' || resolved.status === 'Conectado' || resolved.status === 'Nativo';
-  }).map(s => s.name);
-
-  // Build dynamic datasets from connected sources
-  const dynamicDatasets = dynamicSources.filter(s => !deletedSources[s.id] && (sourceStates[s.id] === 'Ativo' || sourceStates[s.id] === 'Conectado')).flatMap(s => {
-    const connData = SOURCE_CONNECTED_DATA[s.name];
-    return connData ? connData.datasets : [];
-  });
-  const allDatasets = [...MOCK_DATA.datasets, ...dynamicDatasets];
-
-  // Build dynamic logs from connected sources
-  const dynamicLogs = dynamicSources.filter(s => !deletedSources[s.id] && (sourceStates[s.id] === 'Ativo' || sourceStates[s.id] === 'Conectado')).map(s => {
-    const connData = SOURCE_CONNECTED_DATA[s.name];
-    return connData ? connData.log : null;
-  }).filter(Boolean);
-  const allLogs = [...INGESTION_LOG, ...dynamicLogs];
 
   const tabs = ['connections', 'datasets', 'logs'];
   const tabLabels = { connections: 'Connections', datasets: 'Datasets', logs: 'Logs' };
@@ -580,24 +533,21 @@ const DataSyncPage = () => {
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
       <div style={{ padding: '32px' }}>
-        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0' }}>
           <h1 style={{ fontSize: '22px', fontWeight: '700', margin: 0, color: '#000' }}>Data Sync</h1>
           <button onClick={() => setShowWizard(true)} style={{ padding: '10px 20px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>+ Add Source</button>
         </div>
 
-        {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: `2px solid ${COLORS.border}`, margin: '20px 0 24px' }}>
           {tabs.map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '10px 20px', fontSize: '13px', fontWeight: '600', color: activeTab === tab ? COLORS.primary : COLORS.muted, cursor: 'pointer', borderBottom: activeTab === tab ? `2px solid ${COLORS.primary}` : '2px solid transparent', marginBottom: '-2px', background: 'none', border: 'none', borderBottomStyle: 'solid', borderBottomWidth: '2px', borderBottomColor: activeTab === tab ? COLORS.primary : 'transparent', transition: 'all 0.15s' }}>{tabLabels[tab]}</button>
           ))}
         </div>
 
-        {/* TAB: Connections */}
         {activeTab === 'connections' && (
           <div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '24px' }}>
-              {visibleSources.map((source) => (<SourceCard key={source.id} source={getSourceStatus(source)} onConnect={handleCardConnect} onAction={handleSourceAction} />))}
+              {sourceState.visibleSources.map((source) => (<SourceCard key={source.id} source={sourceState.getSourceStatus(source)} onConnect={handleCardConnect} onAction={sourceActions.handleSourceAction} />))}
               <div onClick={() => setShowWizard(true)} style={{ padding: '20px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `2px dashed ${COLORS.border}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px', transition: 'all 0.3s ease' }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = COLORS.primary; e.currentTarget.style.backgroundColor = COLORS.bgBlue; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.backgroundColor = COLORS.cardBg; }}>
@@ -613,7 +563,6 @@ const DataSyncPage = () => {
           </div>
         )}
 
-        {/* TAB: Datasets */}
         {activeTab === 'datasets' && (
           <div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
@@ -630,7 +579,7 @@ const DataSyncPage = () => {
                   <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Actions</th>
                 </tr></thead>
                 <tbody>
-                  {allDatasets.filter(ds => activeSourceNames.includes(ds.fonte) || ds.fonte === 'Blended' || ds.fonte === 'RevFy IQ' || ds.fonte === 'CSV').map((ds, idx) => (
+                  {platformData.allDatasets.map((ds, idx) => (
                     <tr key={idx} style={{ borderBottom: `1px solid ${COLORS.border}` }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                       <td style={{ padding: '12px', fontSize: '13px' }}><div style={{ fontWeight: '600' }}>{ds.nome}</div></td>
                       <td style={{ padding: '12px', fontSize: '13px' }}>{ds.fonte}</td>
@@ -645,7 +594,7 @@ const DataSyncPage = () => {
                       </td>
                     </tr>
                   ))}
-                  {activeSourceNames.length <= 1 && (
+                  {sourceState.activeSourceNames.length <= 1 && (
                     <tr><td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: COLORS.muted, fontSize: '13px' }}>
                       <Database size={24} style={{ marginBottom: '8px', opacity: 0.3 }} /><br />Conecte fontes de dados para ver os datasets disponíveis
                     </td></tr>
@@ -656,12 +605,11 @@ const DataSyncPage = () => {
           </div>
         )}
 
-        {/* TAB: Logs */}
         {activeTab === 'logs' && (
           <div>
             <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
               {(() => {
-                const visibleRows = allLogs.filter(r => activeSourceNames.includes(r.source));
+                const visibleRows = platformData.allLogs.filter(r => sourceState.activeSourceNames.includes(r.source));
                 if (visibleRows.length === 0) return (
                   <div style={{ textAlign: 'center', padding: '48px 20px', color: COLORS.muted }}>
                     <Database size={32} style={{ marginBottom: '12px', opacity: 0.3 }} />
@@ -697,7 +645,6 @@ const DataSyncPage = () => {
         )}
       </div>
 
-      {/* Multi-step Connection Wizard */}
       <Modal isOpen={showWizard} title={selectedSource ? `Conectar ${selectedSource.name}` : 'Conectar Nova Fonte'} onClose={resetWizard}>
         <div style={{ display: 'flex', gap: '4px', marginBottom: '28px' }}>
           {stepLabels.map((label, idx) => (
@@ -731,7 +678,6 @@ const DataSyncPage = () => {
 
         {wizardStep === 1 && selectedSource && (
           <div>
-            {/* Authentication in progress */}
             {authenticating && (
               <div style={{ textAlign: 'center', padding: '32px 16px' }}>
                 <div style={{ width: '56px', height: '56px', border: `4px solid ${COLORS.border}`, borderTopColor: COLORS.primary, borderRadius: '50%', margin: '0 auto 24px', animation: 'spin 1s linear infinite' }} />
@@ -749,7 +695,6 @@ const DataSyncPage = () => {
               </div>
             )}
 
-            {/* Authentication complete */}
             {authDone && (
               <div style={{ textAlign: 'center', padding: '24px 16px' }}>
                 <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: `${COLORS.success}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
@@ -768,38 +713,12 @@ const DataSyncPage = () => {
               </div>
             )}
 
-            {/* Initial form — OAuth */}
-            {!authenticating && !authDone && selectedSource.auth === 'oauth' && (
+            {!authenticating && !authDone && selectedSource.auth !== 'none' && (
               <div>
-                <div style={{ textAlign: 'center', padding: '32px 16px', backgroundColor: COLORS.lightGray, borderRadius: '12px', marginBottom: '20px' }}>
-                  <div style={{ marginBottom: '16px' }}>{getSourceIcon(selectedSource.name)}</div>
-                  <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#000', marginBottom: '8px' }}>Conectar via OAuth 2.0</h3>
-                  <p style={{ fontSize: '13px', color: COLORS.muted, margin: '0 auto 20px', maxWidth: '320px' }}>Você será redirecionado para {selectedSource.name} para autorizar o acesso de leitura aos seus dados.</p>
-                  <button onClick={handleAuthenticate} style={{ padding: '12px 32px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}><Shield size={16} /> Fazer Login em {selectedSource.name}</button>
-                </div>
-                <div style={{ padding: '12px 16px', backgroundColor: COLORS.bgBlue, borderRadius: '8px', fontSize: '12px', color: COLORS.primary }}><strong>Permissões solicitadas:</strong> Leitura de contatos, listas, propriedades. Sem acesso de escrita.</div>
+                <button onClick={handleAuthenticate} style={{ width: '100%', padding: '12px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Autenticar</button>
               </div>
             )}
 
-            {/* Initial form — Credentials */}
-            {!authenticating && !authDone && selectedSource.auth === 'credentials' && (
-              <div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  {selectedSource.fields.map((field) => (
-                    <div key={field}>
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#000', marginBottom: '6px' }}>{field}</label>
-                      <input type={field.toLowerCase().includes('password') || field.toLowerCase().includes('secret') || field.toLowerCase().includes('key') ? 'password' : 'text'} placeholder={`Inserir ${field.toLowerCase()}`}
-                        style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box', outline: 'none' }}
-                        onFocus={(e) => e.currentTarget.style.borderColor = COLORS.primary} onBlur={(e) => e.currentTarget.style.borderColor = COLORS.border} />
-                    </div>
-                  ))}
-                </div>
-                <button onClick={handleAuthenticate} style={{ width: '100%', marginTop: '20px', padding: '12px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Plug size={16} /> Conectar a {selectedSource.name}</button>
-                <div style={{ padding: '12px 16px', backgroundColor: COLORS.bgBlue, borderRadius: '8px', fontSize: '12px', color: COLORS.primary, marginTop: '16px' }}><strong>Segurança:</strong> Credenciais criptografadas com AES-256. Acesso somente leitura ao schema especificado.</div>
-              </div>
-            )}
-
-            {/* Initial form — CSV/File upload */}
             {!authenticating && !authDone && selectedSource.auth === 'none' && (
               <div style={{ textAlign: 'center', padding: '32px' }}>
                 <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}><FileSpreadsheet size={48} color={COLORS.muted} /></div>
@@ -885,7 +804,6 @@ const DataSyncPage = () => {
         )}
       </Modal>
 
-      {/* CSV Upload Modal */}
       <Modal isOpen={showUploadModal} title="Upload CSV / JSON" onClose={() => setShowUploadModal(false)}>
         <div style={{ marginBottom: '24px' }}>
           <div style={{ padding: '48px 24px', border: `2px dashed ${COLORS.border}`, borderRadius: '12px', textAlign: 'center', cursor: 'pointer', marginBottom: '20px', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
@@ -909,13 +827,13 @@ const DataSyncPage = () => {
             <span style={{ fontSize: '12px', color: COLORS.primary }}>Auto-refresh a cada 24h (verifica se há novos arquivos no mesmo path)</span>
           </div>
         </div>
-        <button onClick={() => { setShowUploadModal(false); setSourceStates(prev => ({ ...prev, 4: 'Ativo' })); }} style={{ width: '100%', padding: '12px', backgroundColor: COLORS.success, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Importar Arquivos</button>
+        <button onClick={() => { setShowUploadModal(false); sourceActions.handleUploadCSV(); }} style={{ width: '100%', padding: '12px', backgroundColor: COLORS.success, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Importar Arquivos</button>
       </Modal>
     </div>
   );
 };
 
-const AudienciasPage = () => {
+const AudienciasPage = ({ platformData }) => {
   const [selectedAudience, setSelectedAudience] = useState(MOCK_DATA.audiences[0]);
   const [activeTab, setActiveTab] = useState('construtor');
   const [showActivateModal, setShowActivateModal] = useState(false);
@@ -999,144 +917,25 @@ const AudienciasPage = () => {
   );
 };
 
-const DestinosPage = () => {
-  const [modals, setModals] = useState({ connect: false });
-  return (
-    <div style={{ flex: 1, overflowY: 'auto' }}>
-      <div style={{ padding: '32px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-          <h1 style={{ fontSize: '28px', fontWeight: '700', margin: 0, color: '#000' }}>Destinos de Ativação</h1>
-          <button onClick={() => setModals({ connect: true })} style={{ padding: '10px 20px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>+ Conectar Destino</button>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '40px' }}>
-          {MOCK_DATA.destinations.map((dest) => (
-            <div key={dest.id} style={{ padding: '20px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, transition: 'all 0.3s ease', minHeight: '220px', display: 'flex', flexDirection: 'column' }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = COLORS.primary; e.currentTarget.style.boxShadow = `0 8px 24px rgba(0,0,0,.1)`; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.boxShadow = COLORS.shadow; }}>
-              <div style={{ fontSize: '32px', marginBottom: '12px', fontWeight: '700' }}>{dest.icon}</div>
-              <div style={{ fontSize: '16px', fontWeight: '700', marginBottom: '4px' }}>{dest.name}</div>
-              <div style={{ fontSize: '13px', color: COLORS.muted, marginBottom: '12px' }}>{dest.type}</div>
-              <div style={{ fontSize: '12px', fontWeight: '600', color: COLORS.primary, marginBottom: '12px' }}>Match rate: {dest.match}</div>
-              <div style={{ marginTop: 'auto' }}><Badge color="green">{dest.status}</Badge></div>
+const DestinosPage = () => (
+  <div style={{ flex: 1, overflowY: 'auto' }}>
+    <div style={{ padding: '32px' }}>
+      <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Destinos</h1>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '24px', marginBottom: '32px' }}>
+        {MOCK_DATA.destinations.map((dest) => (
+          <div key={dest.id} style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
+              <div>
+                <div style={{ fontSize: '18px', fontWeight: '700', color: '#000', marginBottom: '4px' }}>{dest.name}</div>
+                <div style={{ fontSize: '12px', color: COLORS.muted }}>{dest.type}</div>
+              </div>
+              <Badge color="green">{dest.status}</Badge>
             </div>
-          ))}
-        </div>
-        <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', color: '#000' }}>Syncs Ativos</h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead><tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
-              <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Audiência</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Destino</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Registros</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Frequência</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Último Sync</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Status</th>
-            </tr></thead>
-            <tbody>
-              {MOCK_DATA.syncs.map((sync, idx) => (
-                <tr key={idx} style={{ borderBottom: `1px solid ${COLORS.border}` }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                  <td style={{ padding: '12px', fontSize: '13px', fontWeight: '600' }}>{sync.audiencia}</td>
-                  <td style={{ padding: '12px', fontSize: '13px' }}>{sync.destino}</td>
-                  <td style={{ padding: '12px', fontSize: '13px', fontWeight: '600' }}>{sync.records.toLocaleString()}</td>
-                  <td style={{ padding: '12px', fontSize: '13px' }}>{sync.frequencia}</td>
-                  <td style={{ padding: '12px', fontSize: '13px' }}>{sync.lastRun}</td>
-                  <td style={{ padding: '12px', fontSize: '13px' }}>{sync.status === 'Sucesso' ? <Badge color="green"><Check size={12} /></Badge> : <Badge color="yellow"><AlertCircle size={12} /></Badge>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <Modal isOpen={modals.connect} title="Conectar Novo Destino" onClose={() => setModals({ connect: false })}>
-        <div style={{ marginBottom: '24px' }}>
-          <label style={{ display: 'block', marginBottom: '12px', fontSize: '14px', fontWeight: '600', color: '#000' }}>Plataforma de Anúncios</label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
-            {[{ name: 'Meta (Facebook/Instagram)', icon: 'f' }, { name: 'Google Ads', icon: 'g' }, { name: 'TikTok', icon: 'tt' }, { name: 'X (Twitter)', icon: 'x' }, { name: 'LinkedIn', icon: 'in' }, { name: 'Programática (DV360)', icon: 'dv' }].map((platform) => (
-              <button key={platform.name} style={{ padding: '16px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', cursor: 'pointer', backgroundColor: COLORS.cardBg, transition: 'all 0.2s' }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = COLORS.bgBlue; e.currentTarget.style.borderColor = COLORS.primary; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = COLORS.cardBg; e.currentTarget.style.borderColor = COLORS.border; }}>
-                <div style={{ fontSize: '20px', marginBottom: '8px', fontWeight: '700' }}>{platform.icon}</div>
-                <div style={{ fontSize: '12px', fontWeight: '600' }}>{platform.name}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-        <button style={{ width: '100%', padding: '12px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Continuar</button>
-      </Modal>
-    </div>
-  );
-};
-
-const SincronizacoesPage = () => (
-  <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-      <h1 style={{ fontSize: '28px', fontWeight: '700', margin: 0, color: '#000' }}>Sincronizações</h1>
-      <button style={{ padding: '10px 20px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>+ Nova Sync</button>
-    </div>
-    <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-        <thead><tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Audiência</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Destino</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Modo</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Registros</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Frequência</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Último Run</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Status</th>
-        </tr></thead>
-        <tbody>
-          {MOCK_DATA.syncs.map((sync, idx) => (
-            <tr key={idx} style={{ borderBottom: `1px solid ${COLORS.border}` }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-              <td style={{ padding: '12px', fontWeight: '600' }}>{sync.audiencia}</td>
-              <td style={{ padding: '12px' }}>{sync.destino}</td>
-              <td style={{ padding: '12px' }}><Badge variant="outline" color="blue">{sync.modo}</Badge></td>
-              <td style={{ padding: '12px', fontWeight: '600' }}>{sync.records.toLocaleString()}</td>
-              <td style={{ padding: '12px' }}>{sync.frequencia}</td>
-              <td style={{ padding: '12px' }}>{sync.lastRun}</td>
-              <td style={{ padding: '12px' }}>{sync.status === 'Sucesso' ? <Badge color="green"><Check size={12} /></Badge> : <Badge color="yellow"><AlertCircle size={12} /></Badge>}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-);
-
-const RevFyIQPage = () => (
-  <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
-    <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '32px', color: '#000' }}>RevFy IQ — Inteligência</h1>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '24px', marginBottom: '32px' }}>
-      {[
-        { iconComponent: BarChart3, title: 'Clustering', content: '4 clusters identificados', color: COLORS.primary },
-        { iconComponent: Target, title: 'Otimização', content: 'Redistribuir R$ 180K de X → Meta (+23% CTR)', color: COLORS.success },
-        { iconComponent: Search, title: 'Lookalike', content: '1.5M novos prospects com 85% similaridade', color: COLORS.cyan },
-        { iconComponent: AlertTriangle, title: 'Anomalia Detectada', content: 'Queda de 15% em match rate TikTok - investigar', color: COLORS.error },
-      ].map((insight, idx) => {
-        const IconComponent = insight.iconComponent;
-        return (
-        <div key={idx} style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `2px solid ${insight.color}20`, boxShadow: COLORS.shadow, transition: 'all 0.3s ease' }}
-          onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 12px 32px ${insight.color}20`; }}
-          onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = COLORS.shadow; }}>
-          <div style={{ marginBottom: '12px' }}><IconComponent size={32} color={insight.color} /></div>
-          <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', color: '#000' }}>{insight.title}</h3>
-          <p style={{ fontSize: '13px', color: COLORS.muted, margin: 0 }}>{insight.content}</p>
-        </div>
-      );})}
-    </div>
-    <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
-      <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', color: '#000' }}>Recomendações de IA</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {[
-          { priority: 'Crítica', title: 'Aumento de match rate TikTok', desc: 'Ampliar audiência com 280K IDs novos baseado em modelo similar' },
-          { priority: 'Alta', title: 'Otimização de spend', desc: 'Transferir R$ 180K de X para Meta pode aumentar ROI em 23%' },
-          { priority: 'Normal', title: 'Novo segmento identificado', desc: 'Cluster de indecisos de renda alta em RJ com alto potencial' },
-        ].map((rec, idx) => (
-          <div key={idx} style={{ padding: '16px', backgroundColor: COLORS.lightGray, borderRadius: '8px', borderLeft: `4px solid ${rec.priority === 'Crítica' ? COLORS.error : rec.priority === 'Alta' ? COLORS.primary : COLORS.success}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
-              <h4 style={{ fontSize: '13px', fontWeight: '700', margin: 0, color: '#000' }}>{rec.title}</h4>
-              <Badge color={rec.priority === 'Crítica' ? 'red' : rec.priority === 'Alta' ? 'blue' : 'green'}>{rec.priority}</Badge>
+            <div style={{ padding: '12px 16px', backgroundColor: COLORS.lightGray, borderRadius: '8px', marginBottom: '16px' }}>
+              <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '4px' }}>Match Rate</div>
+              <div style={{ fontSize: '20px', fontWeight: '700', color: '#000' }}>{dest.match}</div>
             </div>
-            <p style={{ fontSize: '12px', color: COLORS.muted, margin: 0 }}>{rec.desc}</p>
+            <button style={{ width: '100%', padding: '10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', backgroundColor: 'transparent', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: COLORS.primary }}>Configurar</button>
           </div>
         ))}
       </div>
@@ -1144,105 +943,98 @@ const RevFyIQPage = () => (
   </div>
 );
 
-const GovernancaPage = () => (
-  <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
-    <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '32px', color: '#000' }}>Governança — Trust Hub</h1>
-    <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '40px', marginBottom: '40px' }}>
-      <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, textAlign: 'center' }}>
-        <div style={{ position: 'relative', width: '150px', height: '150px', margin: '0 auto 24px' }}>
-          <svg viewBox="0 0 100 100" style={{ width: '100%', height: '100%' }}>
-            <circle cx="50" cy="50" r="45" fill="none" stroke={COLORS.border} strokeWidth="8" />
-            <circle cx="50" cy="50" r="45" fill="none" stroke={COLORS.success} strokeWidth="8" strokeDasharray="265 283" strokeLinecap="round" style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }} />
-            <text x="50" y="60" textAnchor="middle" fontSize="32" fontWeight="700" fill={COLORS.success}>94%</text>
-          </svg>
-        </div>
-        <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#000', marginBottom: '8px' }}>Compliance Score</h3>
-        <p style={{ fontSize: '12px', color: COLORS.muted, margin: 0 }}>Nível de conformidade com regulações</p>
+const SincronizacoesPage = () => (
+  <div style={{ flex: 1, overflowY: 'auto' }}>
+    <div style={{ padding: '32px' }}>
+      <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Sincronizações</h1>
+      <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead><tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
+            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Audiência</th>
+            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Destino</th>
+            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Registros</th>
+            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Frequência</th>
+            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Último Sync</th>
+            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Status</th>
+          </tr></thead>
+          <tbody>
+            {MOCK_DATA.syncs.map((sync) => (
+              <tr key={sync.id} style={{ borderBottom: `1px solid ${COLORS.border}` }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                <td style={{ padding: '12px', fontWeight: '600' }}>{sync.audiencia}</td>
+                <td style={{ padding: '12px' }}>{sync.destino}</td>
+                <td style={{ padding: '12px' }}>{sync.records.toLocaleString()}</td>
+                <td style={{ padding: '12px' }}>{sync.frequencia}</td>
+                <td style={{ padding: '12px' }}>{sync.lastRun}</td>
+                <td style={{ padding: '12px' }}><Badge color={sync.status === 'Sucesso' ? 'green' : 'yellow'}>{sync.status}</Badge></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <div>
-        <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', color: '#000' }}>Requisitos de Compliance</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {MOCK_DATA.compliance.map((req, idx) => (
-            <div key={idx} style={{ padding: '12px', backgroundColor: COLORS.lightGray, borderRadius: '8px', display: 'flex', gap: '12px', alignItems: 'start' }}>
-              <div style={{ marginTop: '2px' }}>{req.status === 'Completo' ? <Check size={18} color={COLORS.success} /> : <AlertCircle size={18} color={COLORS.error} />}</div>
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: '600', color: '#000', marginBottom: '2px' }}>{req.req}</div>
-                <div style={{ fontSize: '11px', color: COLORS.muted }}>{req.detail}</div>
-              </div>
+    </div>
+  </div>
+);
+
+const RevFyIQPage = () => (
+  <div style={{ flex: 1, overflowY: 'auto' }}>
+    <div style={{ padding: '32px' }}>
+      <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>RevFy IQ</h1>
+      <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
+        <div style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', color: '#000' }}>Modelos de Machine Learning</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          {[{ name: 'Lookalike Sudeste', accuracy: '94%', dataset: '1.5M registros' }, { name: 'Churn Prediction', accuracy: '91%', dataset: '847K registros' }].map((model, idx) => (
+            <div key={idx} style={{ padding: '16px', backgroundColor: COLORS.lightGray, borderRadius: '8px' }}>
+              <div style={{ fontWeight: '600', color: '#000', marginBottom: '4px' }}>{model.name}</div>
+              <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '8px' }}>Acurácia: {model.accuracy}</div>
+              <div style={{ fontSize: '11px', color: COLORS.muted }}>{model.dataset}</div>
             </div>
           ))}
         </div>
       </div>
     </div>
-    <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#000', margin: 0 }}>Log SHA-256 (Imutável)</h3>
-        <button style={{ padding: '8px 16px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}><FileDown size={14} /> Exportar Relatório</button>
+  </div>
+);
+
+const GovernancaPage = () => (
+  <div style={{ flex: 1, overflowY: 'auto' }}>
+    <div style={{ padding: '32px' }}>
+      <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Governança</h1>
+      <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead><tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
+            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Requisito</th>
+            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Status</th>
+            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Detalhe</th>
+          </tr></thead>
+          <tbody>
+            {MOCK_DATA.compliance.map((item, idx) => (
+              <tr key={idx} style={{ borderBottom: `1px solid ${COLORS.border}` }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                <td style={{ padding: '12px', fontWeight: '600' }}>{item.req}</td>
+                <td style={{ padding: '12px' }}><Badge color={item.status === 'Completo' ? 'green' : 'yellow'}>{item.status}</Badge></td>
+                <td style={{ padding: '12px', fontSize: '12px', color: COLORS.muted }}>{item.detail}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-        <thead><tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Timestamp</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Hash SHA-256</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Ação</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Usuário</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Status</th>
-        </tr></thead>
-        <tbody>
-          {[
-            { time: '2026-03-25 14:32:15', hash: '8a4b2c9e3d1f7a...', action: 'Audiência Ativada', user: 'Maria Silva', status: 'Verificado' },
-            { time: '2026-03-25 13:15:42', hash: '5f9d2c1a4e8b3g...', action: 'Dataset Sincronizado', user: 'Sistema', status: 'Verificado' },
-            { time: '2026-03-25 11:47:20', hash: '2x7y8z9a0b1c2d...', action: 'Novo Usuário', user: 'Jules Marques', status: 'Verificado' },
-            { time: '2026-03-25 10:22:33', hash: '7q8w9e3r4t5y6u...', action: 'Relatório Exportado', user: 'Carlos Gomes', status: 'Verificado' },
-            { time: '2026-03-25 09:51:08', hash: '3h4j5k6l7m8n9o...', action: 'Compliance Score', user: 'Sistema', status: 'Verificado' },
-            { time: '2026-03-25 08:30:15', hash: '1p2s3d4f5g6h7j...', action: 'Integração', user: 'Jules Marques', status: 'Verificado' },
-            { time: '2026-03-25 07:12:44', hash: '9o8i7u6y5t4r3e...', action: 'Sincronização Falha', user: 'Sistema', status: 'Alerta' },
-            { time: '2026-03-24 23:45:52', hash: '2w3x4c5v6b7n8m...', action: 'Blacklist Atualizada', user: 'Sistema', status: 'Verificado' },
-          ].map((log, idx) => (
-            <tr key={idx} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
-              <td style={{ padding: '12px' }}>{log.time}</td>
-              <td style={{ padding: '12px', fontFamily: 'monospace', fontSize: '11px', color: COLORS.muted }}>{log.hash}</td>
-              <td style={{ padding: '12px' }}>{log.action}</td>
-              <td style={{ padding: '12px' }}>{log.user}</td>
-              <td style={{ padding: '12px' }}>{log.status === 'Verificado' ? <Badge color="green"><Check size={12} /></Badge> : <Badge color="yellow"><AlertCircle size={12} /></Badge>}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   </div>
 );
 
 const InvestimentoPage = () => (
-  <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
-    <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '32px', color: '#000' }}>Investimento — Trust Hub</h1>
-    <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, marginBottom: '32px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-        <span style={{ fontSize: '14px', fontWeight: '600', color: '#000' }}>Orçamento Utilizado</span>
-        <span style={{ fontSize: '14px', fontWeight: '700', color: COLORS.primary }}>R$ 4.8M / R$ 16.5M (29%)</span>
+  <div style={{ flex: 1, overflowY: 'auto' }}>
+    <div style={{ padding: '32px' }}>
+      <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Investimento</h1>
+      <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, marginBottom: '24px' }}>
+        <div style={{ fontSize: '14px', color: COLORS.muted, marginBottom: '4px' }}>Investimento Total</div>
+        <div style={{ fontSize: '32px', fontWeight: '700', color: '#000', marginBottom: '8px' }}>R$ 4.8M</div>
+        <div style={{ fontSize: '12px', color: COLORS.success, fontWeight: '600' }}>de R$ 16.5M alocado</div>
       </div>
-      <div style={{ height: '12px', backgroundColor: COLORS.border, borderRadius: '6px', overflow: 'hidden' }}>
-        <div style={{ height: '100%', backgroundColor: COLORS.primary, width: '29%' }} />
-      </div>
-    </div>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
-      <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
-        <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', color: '#000' }}>Distribuição por Canal</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={MOCK_DATA.spendData}>
-            <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} /><XAxis dataKey="channel" stroke={COLORS.muted} /><YAxis stroke={COLORS.muted} /><Tooltip /><Bar dataKey="spend" fill={COLORS.primary} radius={[8, 8, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {MOCK_DATA.spendData.map((channel) => (
-          <div key={channel.channel} style={{ padding: '16px', backgroundColor: COLORS.lightGray, borderRadius: '8px', borderLeft: `4px solid ${COLORS.primary}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ fontSize: '13px', fontWeight: '600', color: '#000' }}>{channel.channel}</span>
-              <span style={{ fontSize: '13px', fontWeight: '700', color: COLORS.primary }}>R$ {(channel.spend / 1000000).toFixed(1)}M</span>
-            </div>
-            <div style={{ height: '6px', backgroundColor: COLORS.border, borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', backgroundColor: COLORS.primary, width: `${(channel.spend / 2100000) * 100}%` }} />
-            </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+        {MOCK_DATA.spendData.map((item) => (
+          <div key={item.channel} style={{ padding: '16px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, textAlign: 'center' }}>
+            <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '8px' }}>{item.channel}</div>
+            <div style={{ fontSize: '18px', fontWeight: '700', color: '#000' }}>R$ {(item.spend / 1000000).toFixed(1)}M</div>
           </div>
         ))}
       </div>
@@ -1251,78 +1043,34 @@ const InvestimentoPage = () => (
 );
 
 const ColigadosPage = () => (
-  <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
-    <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '32px', color: '#000' }}>Colaboração — Parceiros</h1>
-    <div style={{ marginBottom: '40px' }}>
-      <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '16px', color: '#000' }}>Organizações Conectadas</h3>
+  <div style={{ flex: 1, overflowY: 'auto' }}>
+    <div style={{ padding: '32px' }}>
+      <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Parceiros</h1>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
-        {MOCK_DATA.coalitions.map((coalition) => (
-          <div key={coalition.name} style={{ padding: '20px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `2px solid ${coalition.color}`, boxShadow: COLORS.shadow }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: coalition.color, marginBottom: '16px' }} />
-            <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#000', marginBottom: '4px' }}>{coalition.name}</h4>
-            <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '12px' }}>
-              <div>{coalition.role}</div>
-              <div style={{ marginTop: '4px', fontWeight: '600', color: coalition.color }}>{coalition.access}</div>
-            </div>
+        {MOCK_DATA.coalitions.map((coalition, idx) => (
+          <div key={idx} style={{ padding: '20px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
+            <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: coalition.color + '20', marginBottom: '12px' }} />
+            <div style={{ fontSize: '16px', fontWeight: '700', color: '#000', marginBottom: '4px' }}>{coalition.name}</div>
+            <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '8px' }}>{coalition.role}</div>
+            <div style={{ fontSize: '11px', color: COLORS.primary, fontWeight: '600' }}>{coalition.access}</div>
           </div>
         ))}
       </div>
-    </div>
-    <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
-      <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', color: '#000' }}>Último Acesso de Dados</h3>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-        <thead><tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Organização</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Tipo de Acesso</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Data/Hora</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Detalhes</th>
-        </tr></thead>
-        <tbody>
-          {[
-            { party: 'Organização Beta', access: 'Visualizou Relatório', time: '25/03 10:15', detail: 'Gastos por Canal' },
-            { party: 'Organização Gamma', access: 'Visualizou Dashboard', time: '24/03 15:42', detail: 'Overview' },
-            { party: 'Organização Beta', access: 'Exportou Dataset', time: '24/03 11:20', detail: 'Contatos HubSpot' },
-            { party: 'Organização Gamma', access: 'Visualizou Relatório', time: '23/03 09:30', detail: 'Compliance' },
-            { party: 'Organização Beta', access: 'Visualizou Audiências', time: '22/03 14:05', detail: 'Segmento SP 25-44' },
-          ].map((log, idx) => (
-            <tr key={idx} style={{ borderBottom: `1px solid ${COLORS.border}` }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-              <td style={{ padding: '12px', fontWeight: '600' }}>{log.party}</td>
-              <td style={{ padding: '12px' }}>{log.access}</td>
-              <td style={{ padding: '12px' }}>{log.time}</td>
-              <td style={{ padding: '12px', color: COLORS.muted }}>{log.detail}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   </div>
 );
 
 const IntegracoesPage = () => (
-  <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
-    <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '32px', color: '#000' }}>Integrações</h1>
-    <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
-      <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', color: '#000' }}>Conexões OAuth</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {[
-          { name: 'Snowflake', type: 'Warehouse', connected: true },
-          { name: 'Meta Business API', type: 'Destination', connected: true },
-          { name: 'Google Cloud', type: 'Warehouse', connected: true },
-          { name: 'Slack', type: 'Notificação', connected: false },
-        ].map((integration) => (
-          <div key={integration.name} style={{ padding: '16px', backgroundColor: COLORS.lightGray, borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>{integration.name}</div>
-              <div style={{ fontSize: '11px', color: COLORS.muted }}>{integration.type}</div>
+  <div style={{ flex: 1, overflowY: 'auto' }}>
+    <div style={{ padding: '32px' }}>
+      <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Integrações</h1>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+        {[{ name: 'Snowflake', status: 'Conectado' }, { name: 'BigQuery', status: 'Configurando' }, { name: 'HubSpot', status: 'Conectado' }, { name: 'Salesforce', status: 'Conectado' }, { name: 'Meta Ads', status: 'Conectado' }, { name: 'Google Ads', status: 'Conectado' }].map((int, idx) => (
+          <div key={idx} style={{ padding: '20px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+              <div style={{ fontSize: '16px', fontWeight: '700', color: '#000' }}>{int.name}</div>
+              <Badge color={int.status === 'Conectado' ? 'green' : 'blue'}>{int.status}</Badge>
             </div>
-            {integration.connected ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Check size={16} color={COLORS.success} />
-                <span style={{ fontSize: '12px', fontWeight: '600', color: COLORS.success }}>Conectado</span>
-              </div>
-            ) : (
-              <button style={{ padding: '6px 16px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '6px', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Conectar</button>
-            )}
           </div>
         ))}
       </div>
@@ -1331,61 +1079,62 @@ const IntegracoesPage = () => (
 );
 
 const UsuariosPage = () => (
-  <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-      <h1 style={{ fontSize: '28px', fontWeight: '700', margin: 0, color: '#000' }}>Gerenciar Usuários</h1>
-      <button style={{ padding: '10px 20px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>+ Convidar Membro</button>
-    </div>
-    <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-        <thead><tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Nome</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Email</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Papel</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Último Acesso</th>
-          <th style={{ padding: '12px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Status</th>
-        </tr></thead>
-        <tbody>
-          {MOCK_DATA.users.map((user) => (
-            <tr key={user.id} style={{ borderBottom: `1px solid ${COLORS.border}` }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-              <td style={{ padding: '12px', fontWeight: '600' }}>{user.name}</td>
-              <td style={{ padding: '12px' }}>{user.email}</td>
-              <td style={{ padding: '12px' }}><Badge variant="outline" color="blue">{user.role}</Badge></td>
-              <td style={{ padding: '12px' }}>{user.lastAccess}</td>
-              <td style={{ padding: '12px' }}><Badge color={user.status === 'Ativo' ? 'green' : 'yellow'}>{user.status}</Badge></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+  <div style={{ flex: 1, overflowY: 'auto' }}>
+    <div style={{ padding: '32px' }}>
+      <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Usuários</h1>
+      <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead><tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
+            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Nome</th>
+            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Email</th>
+            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Papel</th>
+            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Último Acesso</th>
+            <th style={{ padding: '12px', textAlign: 'left', fontSize: '12px', fontWeight: '700', color: COLORS.muted }}>Status</th>
+          </tr></thead>
+          <tbody>
+            {MOCK_DATA.users.map((user) => (
+              <tr key={user.id} style={{ borderBottom: `1px solid ${COLORS.border}` }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                <td style={{ padding: '12px', fontWeight: '600' }}>{user.name}</td>
+                <td style={{ padding: '12px', fontSize: '13px' }}>{user.email}</td>
+                <td style={{ padding: '12px', fontSize: '13px' }}>{user.role}</td>
+                <td style={{ padding: '12px', fontSize: '13px', color: COLORS.muted }}>{user.lastAccess}</td>
+                <td style={{ padding: '12px' }}><Badge color={user.status === 'Ativo' ? 'green' : 'yellow'}>{user.status}</Badge></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 );
 
 const CalendarioPage = () => (
-  <div style={{ flex: 1, overflowY: 'auto', padding: '32px' }}>
-    <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '32px', color: '#000' }}>Calendário do Projeto</h1>
-    <div style={{ padding: '32px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
-      <div style={{ position: 'relative', paddingLeft: '40px' }}>
-        {MOCK_DATA.calendar.map((event, idx) => {
-          const bgColor = event.status === 'current' ? COLORS.bgBlue : event.status === 'critical' ? '#FF6B6B' + '15' : 'transparent';
-          const borderColor = event.status === 'current' ? COLORS.primary : event.status === 'critical' ? '#FF6B6B' : COLORS.border;
-          return (
-            <div key={idx} style={{ position: 'relative', paddingTop: idx === 0 ? '0' : '20px', paddingBottom: '20px' }}>
-              <div style={{ position: 'absolute', left: '0', top: '12px', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: event.status === 'current' ? COLORS.primary : event.status === 'critical' ? '#FF6B6B' : COLORS.border, border: `4px solid ${COLORS.cardBg}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: event.status === 'current' || event.status === 'critical' ? '#fff' : COLORS.muted, fontWeight: '700', marginLeft: '-40px' }}>
-                {event.status === 'current' ? <Check size={12} color="#fff" /> : ''}
+  <div style={{ flex: 1, overflowY: 'auto' }}>
+    <div style={{ padding: '32px' }}>
+      <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '32px', color: '#000' }}>Calendário</h1>
+      <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
+        <div style={{ position: 'relative', paddingLeft: '60px' }}>
+          {MOCK_DATA.calendar.map((event, idx) => {
+            const bgColor = event.status === 'current' ? COLORS.bgBlue : event.status === 'critical' ? '#FF6B6B' + '15' : 'transparent';
+            const borderColor = event.status === 'current' ? COLORS.primary : event.status === 'critical' ? '#FF6B6B' : COLORS.border;
+            return (
+              <div key={idx} style={{ position: 'relative', paddingTop: idx === 0 ? '0' : '20px', paddingBottom: '20px' }}>
+                <div style={{ position: 'absolute', left: '0', top: '12px', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: event.status === 'current' ? COLORS.primary : event.status === 'critical' ? '#FF6B6B' : COLORS.border, border: `4px solid ${COLORS.cardBg}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: event.status === 'current' || event.status === 'critical' ? '#fff' : COLORS.muted, fontWeight: '700', marginLeft: '-40px' }}>
+                  {event.status === 'current' ? <Check size={12} color="#fff" /> : ''}
+                </div>
+                {idx < MOCK_DATA.calendar.length - 1 && (
+                  <div style={{ position: 'absolute', left: '11px', top: '36px', width: '2px', height: '40px', backgroundColor: COLORS.border, marginLeft: '-40px' }} />
+                )}
+                <div style={{ padding: '16px', backgroundColor: bgColor, borderRadius: '8px', border: `1px solid ${borderColor}`, marginLeft: '24px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', marginBottom: '4px' }}>{event.date}</div>
+                  <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#000', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>{getCalendarIcon(event.icon)} {event.phase}</h3>
+                  {event.status === 'current' && <Badge color="blue">Atual</Badge>}
+                  {event.status === 'critical' && <Badge color="red">Crítico</Badge>}
+                </div>
               </div>
-              {idx < MOCK_DATA.calendar.length - 1 && (
-                <div style={{ position: 'absolute', left: '11px', top: '36px', width: '2px', height: '40px', backgroundColor: COLORS.border, marginLeft: '-40px' }} />
-              )}
-              <div style={{ padding: '16px', backgroundColor: bgColor, borderRadius: '8px', border: `1px solid ${borderColor}`, marginLeft: '24px' }}>
-                <div style={{ fontSize: '12px', fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', marginBottom: '4px' }}>{event.date}</div>
-                <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#000', margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>{getCalendarIcon(event.icon)} {event.phase}</h3>
-                {event.status === 'current' && <Badge color="blue">Atual</Badge>}
-                {event.status === 'critical' && <Badge color="red">Crítico</Badge>}
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   </div>
@@ -1394,11 +1143,150 @@ const CalendarioPage = () => (
 export default function RevfyTrustHubDemo() {
   const [currentPage, setCurrentPage] = useState('overview');
 
+  // Lifted state from DataSyncPage
+  const [sourceStates, setSourceStates] = useState({});
+  const [deletedSources, setDeletedSources] = useState({});
+  const [loadingSources, setLoadingSources] = useState({});
+  const [dynamicSources, setDynamicSources] = useState([]);
+  const [nextId, setNextId] = useState(100);
+
+  // Data computation engine
+  const platformData = useMemo(() => {
+    const allSources = [...MOCK_DATA.sources, ...dynamicSources];
+    const visibleSources = allSources.filter(s => !deletedSources[s.id]);
+
+    const getSourceStatus = (source) => {
+      if (source.native) return source;
+      if (loadingSources[source.id]) return { ...source, status: 'Conectando...', extra: '', lastSync: '—' };
+      const overrideStatus = sourceStates[source.id];
+      if (overrideStatus === 'Ativo') return { ...source, status: 'Ativo', extra: source.connectedExtra, lastSync: source.connectedSync };
+      if (overrideStatus === 'Pausado') return { ...source, status: 'Pausado', extra: source.connectedExtra, lastSync: source.connectedSync };
+      if (overrideStatus === 'Desconectado') return { ...source, status: 'Desconectado', extra: '', lastSync: '—' };
+      return source;
+    };
+
+    const activeSourceNames = visibleSources.filter(s => {
+      const resolved = getSourceStatus(s);
+      return resolved.status === 'Ativo' || resolved.status === 'Conectado' || resolved.status === 'Nativo';
+    }).map(s => s.name);
+
+    // Dynamic datasets from connected sources
+    const dynamicDatasets = dynamicSources.filter(s => !deletedSources[s.id] && (sourceStates[s.id] === 'Ativo' || sourceStates[s.id] === 'Conectado')).flatMap(s => {
+      return generateSourceDatasets(s.name);
+    });
+
+    const allDatasets = [...MOCK_DATA.datasets, ...dynamicDatasets];
+
+    // Dynamic logs from connected sources
+    const dynamicLogs = dynamicSources.filter(s => !deletedSources[s.id] && (sourceStates[s.id] === 'Ativo' || sourceStates[s.id] === 'Conectado')).map(s => {
+      const connData = SOURCE_CONNECTED_DATA[s.name];
+      return connData ? connData.log : null;
+    }).filter(Boolean);
+
+    const allLogs = [...INGESTION_LOG, ...dynamicLogs];
+
+    // Compute total records from active sources
+    const totalRecords = activeSourceNames.reduce((sum, name) => {
+      if (name === 'Upload CSV') return sum + 45231;
+      if (name === 'Revfy Pixel') return sum + 3100000;
+      const connData = SOURCE_CONNECTED_DATA[name];
+      if (connData) {
+        const recordStr = connData.extra.split(' ')[0].replace(/[,.]/g, '');
+        return sum + parseInt(recordStr) || sum;
+      }
+      return sum;
+    }, 0);
+
+    // Compute KPIs
+    const kpis = MOCK_DATA.kpis.map(kpi => {
+      if (kpi.label === 'Registros no DCR') {
+        return { ...kpi, value: totalRecords.toLocaleString() };
+      }
+      return kpi;
+    });
+
+    // Recent activity including source connections
+    const recentActivity = [
+      ...activeSourceNames.slice(-2).reverse().map(source => ({
+        action: `${source} conectado`,
+        detail: `${source} • Dados sincronizados`,
+        time: 'Agora'
+      })),
+      { action: 'Audiência ativada', detail: 'Segmento SP 25-44 → Meta', time: 'Há 2h' },
+      { action: 'Dataset sincronizado', detail: `${activeSourceNames[0] || 'Upload CSV'} (${totalRecords > 1000000 ? (totalRecords / 1000000).toFixed(1) : totalRecords / 1000}M registros)`, time: 'Há 4h' },
+      { action: 'Novo usuário adicionado', detail: 'Ana Costa (Parceiro)', time: 'Há 6h' },
+      { action: 'Relatório compliance exportado', detail: 'Governança Q1 2026', time: 'Há 1d' },
+    ];
+
+    return {
+      kpis,
+      visibleSources,
+      getSourceStatus,
+      activeSourceNames,
+      allDatasets,
+      allLogs,
+      recentActivity,
+    };
+  }, [sourceStates, deletedSources, loadingSources, dynamicSources]);
+
+  // Source action handlers
+  const sourceActions = useMemo(() => ({
+    handleSourceAction: (source, action) => {
+      switch (action) {
+        case 'activate': setSourceStates(prev => ({ ...prev, [source.id]: 'Ativo' })); break;
+        case 'pause': setSourceStates(prev => ({ ...prev, [source.id]: 'Pausado' })); break;
+        case 'disconnect': setSourceStates(prev => ({ ...prev, [source.id]: 'Desconectado' })); break;
+        case 'delete': setDeletedSources(prev => ({ ...prev, [source.id]: true })); break;
+        default: break;
+      }
+    },
+    handleSaveAndClose: (selectedSource) => {
+      const matchedMock = MOCK_DATA.sources.find(s => s.name === selectedSource.name);
+      if (matchedMock) {
+        setLoadingSources(prev => ({ ...prev, [matchedMock.id]: true }));
+        setTimeout(() => {
+          setLoadingSources(prev => { const n = { ...prev }; delete n[matchedMock.id]; return n; });
+          setSourceStates(prev => ({ ...prev, [matchedMock.id]: 'Ativo' }));
+        }, 3500);
+      } else {
+        const connData = SOURCE_CONNECTED_DATA[selectedSource.name];
+        const newId = nextId;
+        setNextId(prev => prev + 1);
+        const newSource = {
+          id: newId,
+          name: selectedSource.name,
+          type: connData ? connData.type : selectedSource.category,
+          status: 'Conectando...',
+          extra: '',
+          lastSync: '—',
+          color: connData ? connData.color : COLORS.cardBg,
+          connectedExtra: connData ? connData.extra : '—',
+          connectedSync: connData ? connData.lastSync : 'Agora',
+        };
+        setDynamicSources(prev => [...prev, newSource]);
+        setLoadingSources(prev => ({ ...prev, [newId]: true }));
+        setTimeout(() => {
+          setLoadingSources(prev => { const n = { ...prev }; delete n[newId]; return n; });
+          setSourceStates(prev => ({ ...prev, [newId]: 'Ativo' }));
+        }, 3500);
+      }
+    },
+    handleUploadCSV: () => {
+      setSourceStates(prev => ({ ...prev, 4: 'Ativo' }));
+    }
+  }), [nextId]);
+
+  const sourceState = useMemo(() => ({
+    visibleSources: platformData.visibleSources,
+    getSourceStatus: platformData.getSourceStatus,
+    activeSourceNames: platformData.activeSourceNames,
+  }), [platformData]);
+
   const renderPage = () => {
     switch (currentPage) {
-      case 'overview': return <OverviewPage />;
-      case 'datasync': return <DataSyncPage />;
-      case 'audiencias': return <AudienciasPage />;
+      case 'overview': return <OverviewPage platformData={platformData} />;
+      case 'datasync': return <DataSyncPage sourceState={sourceState} sourceActions={sourceActions} platformData={platformData} />;
+      case 'audiencias': return <AudienciasPage platformData={platformData} />;
       case 'destinos': return <DestinosPage />;
       case 'sincronizacoes': return <SincronizacoesPage />;
       case 'revfyiq': return <RevFyIQPage />;
@@ -1408,7 +1296,7 @@ export default function RevfyTrustHubDemo() {
       case 'integracoes': return <IntegracoesPage />;
       case 'usuarios': return <UsuariosPage />;
       case 'calendario': return <CalendarioPage />;
-      default: return <OverviewPage />;
+      default: return <OverviewPage platformData={platformData} />;
     }
   };
 
