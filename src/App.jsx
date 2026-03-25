@@ -516,19 +516,55 @@ const OverviewPage = ({ platformData }) => {
   const siteOptions = ['Todos', 'Meta', 'Google Ads', 'TikTok', 'X (Twitter)'];
   const timeframeOptions = ['Hoje', 'Últimos 7 dias', 'Últimos 30 dias', 'Últimos 90 dias', 'Este mês', 'Mês anterior'];
 
-  const topCampaigns = [
-    { name: 'Campanha SP Capital', conversions: 34521, rate: '4.1%', spend: 'R$ 890K', trend: 'up' },
-    { name: 'Campanha Sudeste Digital', conversions: 28934, rate: '3.8%', spend: 'R$ 720K', trend: 'up' },
-    { name: 'Campanha Nacional TV+Digital', conversions: 21456, rate: '2.9%', spend: 'R$ 1.2M', trend: 'down' },
-    { name: 'Campanha Nordeste Mobile', conversions: 18230, rate: '3.2%', spend: 'R$ 480K', trend: 'up' },
+  const allTopCampaigns = [
+    { name: 'Campanha SP Capital', conversions: 34521, rate: '4.1%', spend: 'R$ 890K', trend: 'up', channels: ['Meta', 'Google Ads'], audience: 'Segmento SP 25-44', campaignGroup: 'Campanha SP' },
+    { name: 'Campanha Sudeste Digital', conversions: 28934, rate: '3.8%', spend: 'R$ 720K', trend: 'up', channels: ['Meta', 'TikTok'], audience: 'Lookalike Sudeste', campaignGroup: 'Campanha Sudeste' },
+    { name: 'Campanha Nacional TV+Digital', conversions: 21456, rate: '2.9%', spend: 'R$ 1.2M', trend: 'down', channels: ['Google Ads', 'X (Twitter)', 'Meta'], audience: 'Todas', campaignGroup: 'Campanha Nacional' },
+    { name: 'Campanha Nordeste Mobile', conversions: 18230, rate: '3.2%', spend: 'R$ 480K', trend: 'up', channels: ['Meta', 'TikTok'], audience: 'Todas', campaignGroup: 'Campanha SP' },
   ];
 
-  const topSites = [
-    { name: 'Meta (Facebook + Instagram)', impressions: '12.4M', clicks: '487K', ctr: '3.9%', trend: 'up' },
-    { name: 'Google Ads (Search + Display)', impressions: '8.7M', clicks: '312K', ctr: '3.6%', trend: 'up' },
-    { name: 'TikTok Ads', impressions: '6.2M', clicks: '248K', ctr: '4.0%', trend: 'up' },
-    { name: 'X (Twitter) Ads', impressions: '2.1M', clicks: '63K', ctr: '3.0%', trend: 'down' },
+  const allTopSites = [
+    { name: 'Meta (Facebook + Instagram)', channel: 'Meta', impressions: 12400000, clicks: 487000, ctr: '3.9%', trend: 'up' },
+    { name: 'Google Ads (Search + Display)', channel: 'Google Ads', impressions: 8700000, clicks: 312000, ctr: '3.6%', trend: 'up' },
+    { name: 'TikTok Ads', channel: 'TikTok', impressions: 6200000, clicks: 248000, ctr: '4.0%', trend: 'up' },
+    { name: 'X (Twitter) Ads', channel: 'X (Twitter)', impressions: 2100000, clicks: 63000, ctr: '3.0%', trend: 'down' },
   ];
+
+  // Apply filters
+  const topCampaigns = useMemo(() => {
+    let filtered = allTopCampaigns;
+    if (campaign !== 'Todas') filtered = filtered.filter(c => c.campaignGroup === campaign);
+    if (site !== 'Todos') filtered = filtered.filter(c => c.channels.includes(site));
+    if (audience !== 'Todas') filtered = filtered.filter(c => c.audience === audience || c.audience === 'Todas');
+    return filtered;
+  }, [campaign, site, audience]);
+
+  const topSites = useMemo(() => {
+    let filtered = allTopSites;
+    if (site !== 'Todos') filtered = filtered.filter(s => s.channel === site);
+    return filtered;
+  }, [site]);
+
+  // Timeframe multiplier for chart data
+  const timeMultiplier = useMemo(() => {
+    const m = { 'Hoje': 0.08, 'Últimos 7 dias': 0.25, 'Últimos 30 dias': 1, 'Últimos 90 dias': 2.8, 'Este mês': 0.9, 'Mês anterior': 0.95 };
+    return m[timeframe] || 1;
+  }, [timeframe]);
+
+  const filteredChartData = useMemo(() => {
+    const base = MOCK_DATA.chartData;
+    const siteMultiplier = site !== 'Todos' ? 0.35 : 1;
+    return base.map(d => ({ ...d, records: Math.round(d.records * timeMultiplier * siteMultiplier) }));
+  }, [timeMultiplier, site]);
+
+  const filteredSpendData = useMemo(() => {
+    let data = MOCK_DATA.spendData;
+    if (site !== 'Todos') data = data.filter(d => d.channel === site.replace(' (Twitter)', ''));
+    return data.map(d => ({ ...d, spend: Math.round(d.spend * timeMultiplier) }));
+  }, [site, timeMultiplier]);
+
+  const formatImpressions = (n) => n >= 1000000 ? `${(n/1000000).toFixed(1)}M` : n >= 1000 ? `${(n/1000).toFixed(0)}K` : String(n);
+  const formatClicks = (n) => n >= 1000 ? `${(n/1000).toFixed(0)}K` : String(n);
 
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -602,13 +638,13 @@ const OverviewPage = ({ platformData }) => {
               <span style={{ fontSize: '11px', color: COLORS.muted, padding: '4px 10px', backgroundColor: COLORS.lightGray, borderRadius: '6px' }}>{timeframe}</span>
             </div>
             <ResponsiveContainer width="100%" height={260}>
-              <LineChart data={MOCK_DATA.chartData}>
+              <LineChart data={filteredChartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
                 <XAxis dataKey="day" stroke={COLORS.muted} fontSize={11} />
                 <YAxis stroke={COLORS.muted} fontSize={11} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
                 <Tooltip formatter={(v) => [v.toLocaleString(), 'Registros']} />
                 <Line type="monotone" dataKey="records" stroke={COLORS.primary} strokeWidth={2} dot={false} />
-                {compare && <Line type="monotone" dataKey="records" stroke={COLORS.cyan} strokeWidth={2} dot={false} strokeDasharray="5 5" />}
+                {compare && <Line type="monotone" dataKey="records" stroke={COLORS.cyan} strokeWidth={2} dot={false} strokeDasharray="5 5" data={MOCK_DATA.chartData} />}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -619,7 +655,7 @@ const OverviewPage = ({ platformData }) => {
               <span style={{ fontSize: '11px', color: COLORS.muted, padding: '4px 10px', backgroundColor: COLORS.lightGray, borderRadius: '6px' }}>Investimento (R$)</span>
             </div>
             <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={MOCK_DATA.spendData}>
+              <BarChart data={filteredSpendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
                 <XAxis dataKey="channel" stroke={COLORS.muted} fontSize={11} />
                 <YAxis stroke={COLORS.muted} fontSize={11} tickFormatter={v => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : `${(v/1000).toFixed(0)}K`} />
@@ -636,6 +672,9 @@ const OverviewPage = ({ platformData }) => {
           <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
             <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#000', marginBottom: '16px' }}>Top Campanhas</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {topCampaigns.length === 0 && (
+                <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: COLORS.muted }}>Nenhuma campanha para os filtros selecionados</div>
+              )}
               {topCampaigns.map((c, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: COLORS.lightGray, borderRadius: '8px' }}>
                   <div>
@@ -658,7 +697,7 @@ const OverviewPage = ({ platformData }) => {
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: COLORS.lightGray, borderRadius: '8px' }}>
                   <div>
                     <div style={{ fontSize: '13px', fontWeight: '600', color: '#000', marginBottom: '2px' }}>{s.name}</div>
-                    <div style={{ fontSize: '11px', color: COLORS.muted }}>{s.impressions} impressões • {s.clicks} cliques</div>
+                    <div style={{ fontSize: '11px', color: COLORS.muted }}>{formatImpressions(s.impressions)} impressões • {formatClicks(s.clicks)} cliques</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', fontWeight: '700', color: s.trend === 'up' ? COLORS.success : COLORS.error }}>
                     {s.ctr} {s.trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
@@ -1623,9 +1662,15 @@ const AudienciasPage = ({ platformData }) => {
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(null);
   const [audienceDropdownOpen, setAudienceDropdownOpen] = useState(false);
   const [datasetDropdownOpen, setDatasetDropdownOpen] = useState(false);
+  const [showNewAudienceWizard, setShowNewAudienceWizard] = useState(false);
+  const [newAudName, setNewAudName] = useState('');
+  const [newAudDataset, setNewAudDataset] = useState('');
+  const [dynamicAudiences, setDynamicAudiences] = useState([]);
+  const [exportingAudience, setExportingAudience] = useState(false);
+  const [exportDone, setExportDone] = useState(false);
 
-  // Canvas block sections — mirrors GrowthLoop's Notion-like approach
-  const builderSections = {
+  // Mutable builder state — initialized from templates, editable by user
+  const builderTemplates = {
     'Segmento SP 25-44': {
       dataset: 'Revfy Pixel — Eleitores',
       heading: 'Eleitores SP Capital',
@@ -1690,7 +1735,79 @@ const AudienciasPage = ({ platformData }) => {
     },
   };
 
-  const currentBuilder = builderSections[selectedAudience.name] || builderSections['Segmento SP 25-44'];
+  // Live editable state per audience
+  const [builderOverrides, setBuilderOverrides] = useState({});
+  const getBuilderForAudience = (audName) => {
+    if (builderOverrides[audName]) return builderOverrides[audName];
+    return builderTemplates[audName] || { dataset: 'Selecione um dataset', heading: audName, sections: [{ title: 'Perfil 360 / Golden Profiles', filters: [] }], exclusions: [], audienceSize: 0, treatment: 70, revenue: 'R$ 0' };
+  };
+  const updateBuilder = (audName, updater) => {
+    setBuilderOverrides(prev => {
+      const current = prev[audName] || JSON.parse(JSON.stringify(builderTemplates[audName] || { dataset: 'Selecione um dataset', heading: audName, sections: [{ title: 'Perfil 360 / Golden Profiles', filters: [] }], exclusions: [], audienceSize: 0, treatment: 70, revenue: 'R$ 0' }));
+      const updated = updater(current);
+      // Recalculate audience size based on filter count
+      const totalFilters = updated.sections.reduce((sum, s) => sum + s.filters.length, 0);
+      if (totalFilters > 0 && updated.audienceSize === 0) {
+        updated.audienceSize = Math.floor(50000 + seededRandom(audName.length * 7) * 900000);
+      }
+      if (totalFilters > 0) {
+        const baseSeed = audName.charCodeAt(0) * 137;
+        updated.audienceSize = Math.floor((800000 + seededRandom(baseSeed) * 1200000) / (1 + totalFilters * 0.15));
+      }
+      return { ...prev, [audName]: updated };
+    });
+  };
+
+  const addFilterToSection = (audName, sectionIdx, field) => {
+    updateBuilder(audName, (builder) => {
+      const newBuilder = JSON.parse(JSON.stringify(builder));
+      const section = newBuilder.sections[sectionIdx];
+      const isFirst = section.filters.length === 0;
+      section.filters.push({
+        logic: isFirst ? 'Where' : 'And',
+        field: field.name,
+        op: 'é igual a',
+        values: field.values ? [field.values[0]] : ['—'],
+        type: field.type || 'demo',
+      });
+      return newBuilder;
+    });
+    setFilterDropdownOpen(null);
+  };
+
+  const removeFilter = (audName, sectionIdx, filterIdx) => {
+    updateBuilder(audName, (builder) => {
+      const newBuilder = JSON.parse(JSON.stringify(builder));
+      newBuilder.sections[sectionIdx].filters.splice(filterIdx, 1);
+      // Fix logic of first remaining filter
+      if (newBuilder.sections[sectionIdx].filters.length > 0) {
+        newBuilder.sections[sectionIdx].filters[0].logic = 'Where';
+      }
+      return newBuilder;
+    });
+  };
+
+  const addExclusion = (audName, excludedAud) => {
+    updateBuilder(audName, (builder) => {
+      const newBuilder = JSON.parse(JSON.stringify(builder));
+      if (!newBuilder.exclusions.find(e => e.name === excludedAud.name)) {
+        newBuilder.exclusions.push({ name: excludedAud.name, size: excludedAud.size, type: 'exclude' });
+      }
+      return newBuilder;
+    });
+    setAudienceDropdownOpen(false);
+  };
+
+  const removeExclusion = (audName, exIdx) => {
+    updateBuilder(audName, (builder) => {
+      const newBuilder = JSON.parse(JSON.stringify(builder));
+      newBuilder.exclusions.splice(exIdx, 1);
+      return newBuilder;
+    });
+  };
+
+  const allAudiences = [...MOCK_DATA.audiences, ...dynamicAudiences];
+  const currentBuilder = getBuilderForAudience(selectedAudience.name);
   const treatmentCount = Math.round(currentBuilder.audienceSize * (currentBuilder.treatment / 100));
   const controlCount = currentBuilder.audienceSize - treatmentCount;
 
@@ -1738,10 +1855,10 @@ const AudienciasPage = ({ platformData }) => {
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h3 style={{ fontSize: '13px', fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', margin: 0 }}>Audiências</h3>
-            <span style={{ fontSize: '11px', color: COLORS.muted }}>{MOCK_DATA.audiences.length}</span>
+            <span style={{ fontSize: '11px', color: COLORS.muted }}>{allAudiences.length}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {MOCK_DATA.audiences.map((aud) => (
+            {allAudiences.map((aud) => (
               <div key={aud.id} onClick={() => setSelectedAudience(aud)} style={{ padding: '12px', borderRadius: '10px', cursor: 'pointer', backgroundColor: selectedAudience.id === aud.id ? COLORS.bgBlue : 'transparent', borderLeft: selectedAudience.id === aud.id ? `3px solid ${COLORS.primary}` : '3px solid transparent', transition: 'all 0.2s' }}
                 onMouseEnter={(e) => { if (selectedAudience.id !== aud.id) e.currentTarget.style.backgroundColor = COLORS.lightGray; }}
                 onMouseLeave={(e) => { if (selectedAudience.id !== aud.id) e.currentTarget.style.backgroundColor = 'transparent'; }}>
@@ -1756,7 +1873,7 @@ const AudienciasPage = ({ platformData }) => {
               </div>
             ))}
           </div>
-          <button style={{ width: '100%', marginTop: '16px', padding: '10px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Plus size={14} /> Nova Audiência</button>
+          <button onClick={() => setShowNewAudienceWizard(true)} style={{ width: '100%', marginTop: '16px', padding: '10px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Plus size={14} /> Nova Audiência</button>
         </div>
 
         {/* Center — Canvas Builder */}
@@ -1806,7 +1923,9 @@ const AudienciasPage = ({ platformData }) => {
                     {section.filters.map((f, fIdx) => (
                       <div key={fIdx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', position: 'relative' }}>
                         <span style={{ fontSize: '12px', fontWeight: '600', color: f.logic.includes('not') ? COLORS.error : COLORS.primary, width: '70px', textAlign: 'right', fontFamily: 'monospace', flexShrink: 0 }}>{f.logic}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, padding: '8px 12px', backgroundColor: COLORS.lightGray, borderRadius: '8px', border: `1px solid ${COLORS.border}` }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, padding: '8px 12px', backgroundColor: COLORS.lightGray, borderRadius: '8px', border: `1px solid ${COLORS.border}`, transition: 'all 0.15s' }}
+                          onMouseEnter={e => e.currentTarget.style.borderColor = COLORS.primary + '60'}
+                          onMouseLeave={e => e.currentTarget.style.borderColor = COLORS.border}>
                           <span style={{ fontSize: '10px', fontWeight: '700', color: filterTypeColor(f.type), backgroundColor: filterTypeColor(f.type) + '15', padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>{filterTypeLabel(f.type)}</span>
                           <span style={{ fontSize: '13px', fontWeight: '600', color: '#000' }}>{f.field}</span>
                           <span style={{ fontSize: '12px', color: COLORS.muted }}>{f.op}</span>
@@ -1817,27 +1936,35 @@ const AudienciasPage = ({ platformData }) => {
                           {f.count && <span style={{ fontSize: '10px', fontWeight: '600', color: '#fff', backgroundColor: COLORS.muted, padding: '2px 6px', borderRadius: '4px', marginLeft: 'auto' }}>Count</span>}
                         </div>
                         <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                          <Plus size={14} color={COLORS.muted} style={{ cursor: 'pointer' }} />
-                          <Trash2 size={14} color={COLORS.muted} style={{ cursor: 'pointer' }} />
+                          <div onClick={() => setFilterDropdownOpen(filterDropdownOpen === `${sIdx}-add-${fIdx}` ? null : `${sIdx}-add-${fIdx}`)} style={{ cursor: 'pointer', padding: '2px', borderRadius: '4px' }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = COLORS.bgBlue}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                            <Plus size={14} color={COLORS.primary} />
+                          </div>
+                          <div onClick={() => removeFilter(selectedAudience.name, sIdx, fIdx)} style={{ cursor: 'pointer', padding: '2px', borderRadius: '4px' }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = COLORS.error + '15'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                            <Trash2 size={14} color={COLORS.error} />
+                          </div>
                         </div>
                       </div>
                     ))}
 
                     {/* Add filter prompt */}
                     <div style={{ position: 'relative', marginTop: '8px' }}>
-                      <div onClick={() => setFilterDropdownOpen(filterDropdownOpen === sIdx ? null : sIdx)} style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '78px', cursor: 'pointer' }}>
+                      <div onClick={() => setFilterDropdownOpen(filterDropdownOpen === `section-${sIdx}` ? null : `section-${sIdx}`)} style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '78px', cursor: 'pointer' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', border: `1px dashed ${COLORS.border}`, fontSize: '13px', color: COLORS.muted, flex: 1, transition: 'all 0.2s' }}
                           onMouseEnter={e => { e.currentTarget.style.borderColor = COLORS.primary; e.currentTarget.style.color = COLORS.primary; }}
                           onMouseLeave={e => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.color = COLORS.muted; }}>
                           <Plus size={14} /> Comece digitando para adicionar um <span style={{ color: COLORS.primary, fontWeight: '600', textDecoration: 'underline' }}>filtro</span>
                         </div>
                       </div>
-                      {filterDropdownOpen === sIdx && (
+                      {(filterDropdownOpen === `section-${sIdx}` || (typeof filterDropdownOpen === 'string' && filterDropdownOpen.startsWith(`${sIdx}-add-`))) && (
                         <div style={{ position: 'absolute', top: '100%', left: '78px', marginTop: '4px', backgroundColor: COLORS.cardBg, borderRadius: '10px', border: `1px solid ${COLORS.border}`, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 50, width: '280px', padding: '8px' }}>
                           <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '700', color: COLORS.primary, borderBottom: `1px solid ${COLORS.border}`, marginBottom: '4px' }}>Campos Disponíveis ({availableFields.length})</div>
                           <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
                           {availableFields.map((field, i) => (
-                            <div key={i} onClick={() => setFilterDropdownOpen(null)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                            <div key={i} onClick={() => addFilterToSection(selectedAudience.name, sIdx, field)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
                               onMouseEnter={e => e.currentTarget.style.backgroundColor = COLORS.lightGray}
                               onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
                               <span style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: filterTypeColor(field.type || 'demo') + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '700', color: filterTypeColor(field.type || 'demo') }}>{field.icon}</span>
@@ -1872,7 +1999,11 @@ const AudienciasPage = ({ platformData }) => {
                           <span style={{ marginLeft: 'auto', fontSize: '12px', color: COLORS.muted }}>Eleitores</span>
                           <span style={{ fontSize: '13px', fontWeight: '700', color: '#000' }}>{ex.size.toLocaleString()}</span>
                           <Plus size={14} color={COLORS.muted} style={{ cursor: 'pointer' }} />
-                          <Trash2 size={14} color={COLORS.muted} style={{ cursor: 'pointer' }} />
+                          <div onClick={() => removeExclusion(selectedAudience.name, i)} style={{ cursor: 'pointer', padding: '2px', borderRadius: '4px' }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = COLORS.error + '15'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                            <Trash2 size={14} color={COLORS.error} />
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1891,8 +2022,8 @@ const AudienciasPage = ({ platformData }) => {
                   {audienceDropdownOpen && (
                     <div style={{ position: 'absolute', top: '100%', left: '78px', marginTop: '4px', backgroundColor: COLORS.cardBg, borderRadius: '10px', border: `1px solid ${COLORS.border}`, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 50, width: '300px', padding: '8px' }}>
                       <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '700', color: '#EC4899', borderBottom: `1px solid ${COLORS.border}`, marginBottom: '4px' }}>Audiências</div>
-                      {MOCK_DATA.audiences.filter(a => a.id !== selectedAudience.id).map((aud) => (
-                        <div key={aud.id} onClick={() => setAudienceDropdownOpen(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                      {allAudiences.filter(a => a.id !== selectedAudience.id).map((aud) => (
+                        <div key={aud.id} onClick={() => addExclusion(selectedAudience.name, aud)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
                           onMouseEnter={e => e.currentTarget.style.backgroundColor = COLORS.lightGray}
                           onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2027,13 +2158,13 @@ const AudienciasPage = ({ platformData }) => {
             {metricsTab === 'comparisons' && (
               <div>
                 <p style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '16px' }}>Compare esta audiência com outras para identificar overlaps e oportunidades de otimização.</p>
-                {MOCK_DATA.audiences.filter(a => a.id !== selectedAudience.id).map(aud => (
+                {allAudiences.filter(a => a.id !== selectedAudience.id).map((aud, oi) => (
                   <div key={aud.id} style={{ padding: '12px', backgroundColor: COLORS.lightGray, borderRadius: '8px', marginBottom: '8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                       <span style={{ fontSize: '13px', fontWeight: '600', color: '#000' }}>{aud.name}</span>
                       <span style={{ fontSize: '12px', color: COLORS.muted }}>{aud.size.toLocaleString()}</span>
                     </div>
-                    <div style={{ fontSize: '11px', color: COLORS.muted }}>Overlap: <span style={{ fontWeight: '700', color: '#F59E0B' }}>{(Math.random() * 5 + 1).toFixed(1)}%</span></div>
+                    <div style={{ fontSize: '11px', color: COLORS.muted }}>Overlap: <span style={{ fontWeight: '700', color: '#F59E0B' }}>{(seededRandom(selectedAudience.id * 17 + aud.id * 31 + oi) * 5 + 1).toFixed(1)}%</span></div>
                   </div>
                 ))}
               </div>
@@ -2075,47 +2206,196 @@ const AudienciasPage = ({ platformData }) => {
             ))}
           </div>
         </div>
-        <button style={{ width: '100%', padding: '12px', backgroundColor: COLORS.success, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Exportar</button>
+        {!exportingAudience && !exportDone && (
+          <button onClick={() => { setExportingAudience(true); setTimeout(() => { setExportingAudience(false); setExportDone(true); }, 2500); }} style={{ width: '100%', padding: '12px', backgroundColor: COLORS.success, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Exportar {currentBuilder.audienceSize.toLocaleString()} registros</button>
+        )}
+        {exportingAudience && (
+          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+            <div style={{ width: '36px', height: '36px', border: `3px solid ${COLORS.border}`, borderTopColor: COLORS.success, borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 1s linear infinite' }} />
+            <div style={{ fontSize: '13px', fontWeight: '600', color: '#000' }}>Exportando audiência para destinos...</div>
+            <div style={{ fontSize: '11px', color: COLORS.muted, marginTop: '4px' }}>{currentBuilder.audienceSize.toLocaleString()} registros sendo sincronizados</div>
+          </div>
+        )}
+        {exportDone && (
+          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: `${COLORS.success}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+              <Check size={24} color={COLORS.success} />
+            </div>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: COLORS.success, marginBottom: '4px' }}>Exportação concluída!</div>
+            <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '16px' }}>{currentBuilder.audienceSize.toLocaleString()} registros enviados para {MOCK_DATA.destinations.length} destinos</div>
+            <button onClick={() => { setShowActivateModal(false); setExportDone(false); }} style={{ width: '100%', padding: '10px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Fechar</button>
+          </div>
+        )}
+      </Modal>
+
+      {/* New Audience Wizard */}
+      <Modal isOpen={showNewAudienceWizard} title="Nova Audiência" onClose={() => { setShowNewAudienceWizard(false); setNewAudName(''); setNewAudDataset(''); }}>
+        <p style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '16px' }}>Crie uma nova audiência a partir de um dataset existente. Você poderá adicionar filtros no canvas depois.</p>
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Nome da Audiência</label>
+          <input type="text" value={newAudName} onChange={e => setNewAudName(e.target.value)} placeholder="Ex: Jovens Nordeste, Reativação Q2..." style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
+        </div>
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Dataset Base</label>
+          <select value={newAudDataset} onChange={e => setNewAudDataset(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px' }}>
+            <option value="">Selecione...</option>
+            <option value="Revfy Pixel — Eleitores">Revfy Pixel — Eleitores</option>
+            <option value="Snowflake — Perfis Enriquecidos">Snowflake — Perfis Enriquecidos</option>
+            <option value="RevFy IQ — ML Embeddings">RevFy IQ — ML Embeddings</option>
+            {platformData.activeSourceNames.map(n => <option key={n} value={`${n} — Dados`}>{n} — Dados</option>)}
+          </select>
+        </div>
+        <button onClick={() => {
+          if (newAudName && newAudDataset) {
+            const newAud = { id: 100 + dynamicAudiences.length, name: newAudName, size: 0, status: 'Rascunho', created: '2026-03-25' };
+            setDynamicAudiences(prev => [...prev, newAud]);
+            updateBuilder(newAudName, () => ({
+              dataset: newAudDataset, heading: newAudName,
+              sections: [{ title: 'Perfil 360 / Golden Profiles', filters: [] }, { title: 'Dados Comportamentais', filters: [] }],
+              exclusions: [], audienceSize: 0, treatment: 70, revenue: 'R$ 0',
+            }));
+            setSelectedAudience(newAud);
+            setShowNewAudienceWizard(false); setNewAudName(''); setNewAudDataset('');
+          }
+        }} disabled={!newAudName || !newAudDataset} style={{ width: '100%', padding: '12px', backgroundColor: (newAudName && newAudDataset) ? COLORS.primary : COLORS.border, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: (newAudName && newAudDataset) ? 'pointer' : 'default' }}>Criar e Abrir no Builder</button>
       </Modal>
     </div>
   );
 };
 
-const DestinosPage = () => (
-  <div style={{ flex: 1, overflowY: 'auto' }}>
-    <div style={{ padding: '32px' }}>
-      <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Destinos</h1>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '24px', marginBottom: '32px' }}>
-        {MOCK_DATA.destinations.map((dest) => (
-          <div key={dest.id} style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
-              <div>
-                <div style={{ fontSize: '18px', fontWeight: '700', color: '#000', marginBottom: '4px' }}>{dest.name}</div>
-                <div style={{ fontSize: '12px', color: COLORS.muted }}>{dest.type}</div>
-              </div>
-              <Badge color="green">{dest.status}</Badge>
-            </div>
-            <div style={{ padding: '12px 16px', backgroundColor: COLORS.lightGray, borderRadius: '8px', marginBottom: '16px' }}>
-              <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '4px' }}>Match Rate</div>
-              <div style={{ fontSize: '20px', fontWeight: '700', color: '#000' }}>{dest.match}</div>
-            </div>
-            <button style={{ width: '100%', padding: '10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', backgroundColor: 'transparent', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: COLORS.primary }}>Configurar</button>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
+const DestinosPage = () => {
+  const [configDest, setConfigDest] = useState(null);
+  const [configSaved, setConfigSaved] = useState({});
 
-const SincronizacoesPage = () => {
-  const [expandedId, setExpandedId] = useState(null);
-  const totalRecords = MOCK_DATA.syncs.reduce((sum, s) => sum + s.records, 0);
-  const successRate = ((MOCK_DATA.syncs.filter(s => s.status === 'Sucesso').length / MOCK_DATA.syncs.length) * 100).toFixed(1);
-  const getModoColor = (modo) => ({ Upsert: 'blue', Mirror: 'green', 'Add/Remove': 'yellow', CDC: 'blue' }[modo] || 'blue');
+  const destConfigs = {
+    'Meta': { matchFields: ['email_hash', 'phone_hash', 'device_id'], apiType: 'Custom Audiences + Conversions API (CAPI)', hashAlgo: 'SHA-256', syncMode: 'Incremental', audienceCount: 3 },
+    'Google Ads': { matchFields: ['email_hash', 'phone_hash'], apiType: 'Customer Match API', hashAlgo: 'SHA-256', syncMode: 'Full Sync', audienceCount: 2 },
+    'TikTok': { matchFields: ['email_hash', 'device_id'], apiType: 'Audiences API v1.3', hashAlgo: 'SHA-256', syncMode: 'Incremental', audienceCount: 2 },
+    'X (Twitter)': { matchFields: ['email_hash', 'twitter_handle'], apiType: 'Custom Audiences (TAM)', hashAlgo: 'SHA-256', syncMode: 'Full Sync', audienceCount: 1 },
+  };
+
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
       <div style={{ padding: '32px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Sincronizações</h1>
+        <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Destinos</h1>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '24px', marginBottom: '32px' }}>
+          {MOCK_DATA.destinations.map((dest) => (
+            <div key={dest.id} style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${configSaved[dest.name] ? COLORS.success + '40' : COLORS.border}`, boxShadow: COLORS.shadow }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: '#000', marginBottom: '4px' }}>{dest.name}</div>
+                  <div style={{ fontSize: '12px', color: COLORS.muted }}>{dest.type}</div>
+                </div>
+                <Badge color="green">{dest.status}</Badge>
+              </div>
+              <div style={{ padding: '12px 16px', backgroundColor: COLORS.lightGray, borderRadius: '8px', marginBottom: '16px' }}>
+                <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '4px' }}>Match Rate</div>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: '#000' }}>{dest.match}</div>
+              </div>
+              {configSaved[dest.name] && (
+                <div style={{ padding: '8px 12px', backgroundColor: `${COLORS.success}10`, borderRadius: '6px', marginBottom: '12px', fontSize: '11px', color: COLORS.success, fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Check size={12} /> Configuração salva
+                </div>
+              )}
+              <button onClick={() => setConfigDest(dest)} style={{ width: '100%', padding: '10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', backgroundColor: 'transparent', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: COLORS.primary }}
+                onMouseEnter={e => { e.currentTarget.style.backgroundColor = COLORS.bgBlue; e.currentTarget.style.borderColor = COLORS.primary; }}
+                onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.borderColor = COLORS.border; }}>Configurar</button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <Modal isOpen={!!configDest} title={configDest ? `Configurar ${configDest.name}` : ''} onClose={() => setConfigDest(null)}>
+        {configDest && (() => {
+          const cfg = destConfigs[configDest.name] || destConfigs['Meta'];
+          return (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px', backgroundColor: COLORS.lightGray, borderRadius: '10px', marginBottom: '20px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: COLORS.bgBlue, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: '700', color: COLORS.primary }}>{configDest.icon}</div>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: '700', color: '#000' }}>{configDest.name}</div>
+                  <div style={{ fontSize: '11px', color: COLORS.muted }}>{cfg.apiType}</div>
+                </div>
+                <Badge color="green" variant="soft">{configDest.match} match</Badge>
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '6px' }}>Campos de Matching</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {cfg.matchFields.map((field, i) => (
+                    <label key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: COLORS.lightGray, borderRadius: '6px', fontSize: '12px', cursor: 'pointer' }}>
+                      <input type="checkbox" defaultChecked style={{ width: '14px', height: '14px', accentColor: COLORS.primary }} /> <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{field}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Algoritmo de Hash</label>
+                  <select defaultValue={cfg.hashAlgo} style={{ width: '100%', padding: '8px 10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '12px' }}>
+                    <option>SHA-256</option><option>SHA-1</option><option>MD5 (não recomendado)</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Modo de Sync</label>
+                  <select defaultValue={cfg.syncMode} style={{ width: '100%', padding: '8px 10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '12px' }}>
+                    <option>Incremental</option><option>Full Sync</option><option>Mirror (Replace)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ padding: '12px', backgroundColor: COLORS.bgBlue, borderRadius: '8px', marginBottom: '16px', fontSize: '12px', color: COLORS.primary }}>
+                <strong>Preview:</strong> {cfg.audienceCount} audiências ativas serão sincronizadas via {cfg.matchFields.length} campos de matching com hash {cfg.hashAlgo}.
+              </div>
+
+              <button onClick={() => { setConfigSaved(prev => ({ ...prev, [configDest.name]: true })); setConfigDest(null); }} style={{ width: '100%', padding: '12px', backgroundColor: COLORS.success, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Salvar Configuração</button>
+            </div>
+          );
+        })()}
+      </Modal>
+    </div>
+  );
+};
+
+const SincronizacoesPage = () => {
+  const [expandedId, setExpandedId] = useState(null);
+  const [showSyncWizard, setShowSyncWizard] = useState(false);
+  const [syncWizardStep, setSyncWizardStep] = useState(0);
+  const [newSyncAudience, setNewSyncAudience] = useState('');
+  const [newSyncDestino, setNewSyncDestino] = useState('');
+  const [newSyncModo, setNewSyncModo] = useState('Upsert');
+  const [newSyncFreq, setNewSyncFreq] = useState('Diária');
+  const [newSyncCdc, setNewSyncCdc] = useState(true);
+  const [dynamicSyncs, setDynamicSyncs] = useState([]);
+  const [creatingSyncAnim, setCreatingSyncAnim] = useState(false);
+
+  const allSyncs = [...MOCK_DATA.syncs, ...dynamicSyncs];
+  const totalRecords = allSyncs.reduce((sum, s) => sum + s.records, 0);
+  const successRate = ((allSyncs.filter(s => s.status === 'Sucesso').length / allSyncs.length) * 100).toFixed(1);
+  const getModoColor = (modo) => ({ Upsert: 'blue', Mirror: 'green', 'Add/Remove': 'yellow', CDC: 'blue' }[modo] || 'blue');
+
+  const handleCreateSync = () => {
+    setCreatingSyncAnim(true);
+    setTimeout(() => {
+      const audObj = MOCK_DATA.audiences.find(a => a.name === newSyncAudience);
+      setDynamicSyncs(prev => [...prev, {
+        id: 100 + prev.length, audiencia: newSyncAudience, destino: newSyncDestino, modo: newSyncModo,
+        records: audObj ? audObj.size : 100000, frequencia: newSyncFreq, lastRun: 'Agora', status: 'Sucesso', cdc: newSyncCdc,
+        mappings: [{ source: 'email', dest: 'hashed_email' }, { source: 'segment_id', dest: 'audience_id' }],
+      }]);
+      setCreatingSyncAnim(false);
+      setShowSyncWizard(false); setSyncWizardStep(0); setNewSyncAudience(''); setNewSyncDestino('');
+    }, 2000);
+  };
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ padding: '32px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#000', margin: 0 }}>Syncs</h1>
+          <button onClick={() => setShowSyncWizard(true)} style={{ padding: '10px 20px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>+ Novo Sync</button>
+        </div>
         <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
           {[{ label: 'Syncs Ativos', value: MOCK_DATA.syncs.length }, { label: 'Registros Sincronizados', value: `${(totalRecords / 1000000).toFixed(1)}M` }, { label: 'Taxa de Sucesso', value: `${successRate}%`, color: COLORS.success }].map((kpi, i) => (
             <div key={i} style={{ padding: '12px 16px', backgroundColor: COLORS.cardBg, borderRadius: '8px', border: `1px solid ${COLORS.border}`, flex: 1 }}>
@@ -2132,7 +2412,7 @@ const SincronizacoesPage = () => {
               ))}
             </tr></thead>
             <tbody>
-              {MOCK_DATA.syncs.map((sync) => (
+              {allSyncs.map((sync) => (
                 <Fragment key={sync.id}>
                   <tr style={{ borderBottom: `1px solid ${COLORS.border}`, cursor: 'pointer' }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = COLORS.lightGray}
@@ -2168,6 +2448,82 @@ const SincronizacoesPage = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Sync Creation Wizard */}
+        <Modal isOpen={showSyncWizard} title="Criar Novo Sync" onClose={() => { setShowSyncWizard(false); setSyncWizardStep(0); }}>
+          {syncWizardStep === 0 && !creatingSyncAnim && (
+            <div>
+              <p style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '16px' }}>Configure um novo pipeline de sincronização: audiência → destino.</p>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Audiência</label>
+                <select value={newSyncAudience} onChange={e => setNewSyncAudience(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px' }}>
+                  <option value="">Selecione...</option>
+                  {MOCK_DATA.audiences.map(a => <option key={a.id} value={a.name}>{a.name} ({a.size.toLocaleString()})</option>)}
+                </select>
+              </div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Destino</label>
+                <select value={newSyncDestino} onChange={e => setNewSyncDestino(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px' }}>
+                  <option value="">Selecione...</option>
+                  {MOCK_DATA.destinations.map(d => <option key={d.id} value={d.name}>{d.name} — {d.type}</option>)}
+                </select>
+              </div>
+              <button onClick={() => { if (newSyncAudience && newSyncDestino) setSyncWizardStep(1); }} disabled={!newSyncAudience || !newSyncDestino} style={{ width: '100%', padding: '12px', backgroundColor: (newSyncAudience && newSyncDestino) ? COLORS.primary : COLORS.border, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: (newSyncAudience && newSyncDestino) ? 'pointer' : 'default' }}>Continuar — Configurar Sync</button>
+            </div>
+          )}
+          {syncWizardStep === 1 && !creatingSyncAnim && (
+            <div>
+              <div style={{ padding: '10px 14px', backgroundColor: COLORS.bgBlue, borderRadius: '8px', marginBottom: '16px', fontSize: '12px', color: COLORS.primary, display: 'flex', justifyContent: 'space-between' }}>
+                <span><strong>Audiência:</strong> {newSyncAudience}</span>
+                <span><strong>Destino:</strong> {newSyncDestino}</span>
+              </div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Modo de Sync</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {['Upsert', 'Mirror', 'Add/Remove', 'CDC'].map(m => (
+                    <button key={m} onClick={() => setNewSyncModo(m)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: `1px solid ${newSyncModo === m ? COLORS.primary : COLORS.border}`, backgroundColor: newSyncModo === m ? COLORS.bgBlue : 'transparent', color: newSyncModo === m ? COLORS.primary : COLORS.muted, fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>{m}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>Frequência</label>
+                <select value={newSyncFreq} onChange={e => setNewSyncFreq(e.target.value)} style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px' }}>
+                  <option>Horária</option><option>A cada 6h</option><option>Diária</option><option>A cada 12h</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', backgroundColor: COLORS.lightGray, borderRadius: '8px', marginBottom: '14px' }}>
+                <div onClick={() => setNewSyncCdc(!newSyncCdc)} style={{ width: '32px', height: '18px', borderRadius: '9px', cursor: 'pointer', backgroundColor: newSyncCdc ? COLORS.primary : '#D1D5DB', position: 'relative', flexShrink: 0 }}>
+                  <div style={{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: '#fff', position: 'absolute', top: '2px', left: newSyncCdc ? '16px' : '2px', transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,.2)' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: '600', color: '#000' }}>CDC (Change Data Capture)</div>
+                  <div style={{ fontSize: '11px', color: COLORS.muted }}>Detecta e sincroniza apenas registros alterados via Snowflake Streams</div>
+                </div>
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: '#000', marginBottom: '6px' }}>Field Mapping (preview)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {[{ s: 'email', d: 'hashed_email' }, { s: 'segment_id', d: 'audience_id' }, { s: 'device_id', d: 'device_match' }].map((m, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', backgroundColor: COLORS.lightGray, borderRadius: '6px', fontSize: '12px' }}>
+                      <span style={{ fontWeight: '600', fontFamily: 'monospace' }}>{m.s}</span>
+                      <span style={{ color: COLORS.muted }}>→</span>
+                      <span style={{ fontWeight: '600', fontFamily: 'monospace', color: COLORS.primary }}>{m.d}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <button onClick={handleCreateSync} style={{ width: '100%', padding: '12px', backgroundColor: COLORS.success, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Criar Sync</button>
+              <button onClick={() => setSyncWizardStep(0)} style={{ width: '100%', marginTop: '8px', padding: '10px', backgroundColor: 'transparent', color: COLORS.muted, border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>← Voltar</button>
+            </div>
+          )}
+          {creatingSyncAnim && (
+            <div style={{ textAlign: 'center', padding: '32px 0' }}>
+              <div style={{ width: '48px', height: '48px', border: `4px solid ${COLORS.border}`, borderTopColor: COLORS.success, borderRadius: '50%', margin: '0 auto 20px', animation: 'spin 1s linear infinite' }} />
+              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#000', marginBottom: '8px' }}>Criando sync pipeline...</h3>
+              <div style={{ fontSize: '12px', color: COLORS.muted }}>{newSyncAudience} → {newSyncDestino}</div>
+            </div>
+          )}
+        </Modal>
       </div>
     </div>
   );
@@ -2513,24 +2869,6 @@ const ColigadosPage = () => (
             <div style={{ fontSize: '16px', fontWeight: '700', color: '#000', marginBottom: '4px' }}>{coalition.name}</div>
             <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '8px' }}>{coalition.role}</div>
             <div style={{ fontSize: '11px', color: COLORS.primary, fontWeight: '600' }}>{coalition.access}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-const IntegracoesPage = () => (
-  <div style={{ flex: 1, overflowY: 'auto' }}>
-    <div style={{ padding: '32px' }}>
-      <h1 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '24px', color: '#000' }}>Integrações</h1>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
-        {[{ name: 'Snowflake', status: 'Conectado' }, { name: 'BigQuery', status: 'Configurando' }, { name: 'HubSpot', status: 'Conectado' }, { name: 'Salesforce', status: 'Conectado' }, { name: 'Meta Ads', status: 'Conectado' }, { name: 'Google Ads', status: 'Conectado' }].map((int, idx) => (
-          <div key={idx} style={{ padding: '20px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
-              <div style={{ fontSize: '16px', fontWeight: '700', color: '#000' }}>{int.name}</div>
-              <Badge color={int.status === 'Conectado' ? 'green' : 'blue'}>{int.status}</Badge>
-            </div>
           </div>
         ))}
       </div>
