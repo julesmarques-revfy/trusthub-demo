@@ -415,17 +415,58 @@ const SOURCE_CATALOG = [
 ];
 
 const SOURCE_CONNECTED_DATA = {
-  'Snowflake': { type: 'Data Warehouse', extra: '1,203,847 registros • 4 tabelas', lastSync: '2min atrás', color: '#E8F4FF', log: { source: 'Snowflake', records: '1,203,847', duration: '2m 14s', time: '25/03 14:32', status: 'Sucesso' } },
-  'BigQuery': { type: 'Data Warehouse (GCP)', extra: '2.4M registros • 6 tabelas', lastSync: '5min atrás', color: '#EEF1FF', log: { source: 'BigQuery', records: '2,400,000', duration: '3m 05s', time: '25/03 13:10', status: 'Sucesso' } },
-  'HubSpot': { type: 'CRM (OAuth)', extra: '1,200,532 contatos • 3 objetos', lastSync: '3min atrás', color: '#FFF3E8', log: { source: 'HubSpot', records: '1,200,532', duration: '3m 42s', time: '25/03 12:15', status: 'Sucesso' } },
-  'Salesforce': { type: 'CRM (OAuth)', extra: '845,231 leads • 2 objetos', lastSync: '10min atrás', color: '#E8F0FF', log: { source: 'Salesforce', records: '845,231', duration: '4m 08s', time: '25/03 10:00', status: 'Sucesso' } },
-  'Redshift': { type: 'Data Warehouse', extra: '980K registros • 3 tabelas', lastSync: '8min atrás', color: '#FFE8E8', log: { source: 'Redshift', records: '980,000', duration: '1m 55s', time: '25/03 11:45', status: 'Sucesso' } },
-  'PostgreSQL': { type: 'Database', extra: '520K registros • 5 tabelas', lastSync: '6min atrás', color: '#E8F8FF', log: { source: 'PostgreSQL', records: '520,000', duration: '1m 12s', time: '25/03 09:30', status: 'Sucesso' } },
-  'MySQL': { type: 'Database', extra: '310K registros • 4 tabelas', lastSync: '12min atrás', color: '#FFF8E8', log: { source: 'MySQL', records: '310,000', duration: '0m 48s', time: '25/03 08:00', status: 'Sucesso' } },
-  'Google Sheets': { type: 'Planilha (OAuth)', extra: '15K registros • 2 sheets', lastSync: '1min atrás', color: '#E8FFE8', log: { source: 'Google Sheets', records: '15,000', duration: '0m 05s', time: '25/03 14:00', status: 'Sucesso' } },
-  'API REST': { type: 'API Endpoint', extra: '312K registros', lastSync: '4min atrás', color: '#F0E8FF', log: { source: 'API REST', records: '312,104', duration: '1m 22s', time: '25/03 14:32', status: 'Sucesso' } },
-  'Webhook': { type: 'Webhook Endpoint', extra: '89K eventos', lastSync: 'Tempo real', color: '#FFE8F8', log: { source: 'Webhook', records: '89,000', duration: '—', time: 'Tempo real', status: 'Ativo' } },
-  'SFTP': { type: 'Arquivo Remoto', extra: '78K registros • 4 arquivos', lastSync: '1h atrás', color: '#F5F0E8', log: { source: 'SFTP', records: '78,000', duration: '0m 32s', time: '25/03 07:00', status: 'Sucesso' } },
+  'Snowflake': { type: 'Data Warehouse', extra: '1,203,847 registros • 4 tabelas', lastSync: '2min atrás', color: '#E8F4FF', log: { source: 'Snowflake', records: '1,203,847', duration: '2m 14s', time: '25/03 14:32', status: 'Sucesso' },
+    fields: [
+      { name: 'Estado', desc: 'UF do eleitor (Snowflake)', icon: 'Aa', type: 'geo', values: ['SP', 'RJ', 'MG', 'BA', 'RS', 'PR', 'PE', 'CE'] },
+      { name: 'Faixa Etária', desc: 'Faixa etária (Snowflake)', icon: 'Aa', type: 'demo', values: ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'] },
+      { name: 'Classe Social', desc: 'Classe socioeconômica', icon: 'Aa', type: 'demo', values: ['A', 'B', 'C', 'D', 'E'] },
+      { name: 'Score Engajamento', desc: 'Propensão de engajamento digital', icon: '12', type: 'model', values: ['Alto', 'Médio-Alto', 'Médio', 'Baixo'] },
+      { name: 'Propensão Voto', desc: 'Score preditivo de voto', icon: '12', type: 'model', values: ['> 0.8', '> 0.6', '> 0.4', '< 0.4'] },
+    ] },
+  'BigQuery': { type: 'Data Warehouse (GCP)', extra: '2.4M registros • 6 tabelas', lastSync: '5min atrás', color: '#EEF1FF', log: { source: 'BigQuery', records: '2,400,000', duration: '3m 05s', time: '25/03 13:10', status: 'Sucesso' },
+    fields: [
+      { name: 'Região', desc: 'Macro-região (BigQuery)', icon: 'Aa', type: 'geo', values: ['Sudeste', 'Nordeste', 'Sul', 'Norte', 'Centro-Oeste'] },
+      { name: 'Canal Digital', desc: 'Canal de aquisição', icon: 'Aa', type: 'demo', values: ['Orgânico', 'Paid Social', 'Search', 'Email', 'Referral'] },
+      { name: 'Evento Campanha', desc: 'Participou de evento', icon: 'Aa', type: 'event', values: ['Sim', 'Não'] },
+      { name: 'Valor Doação', desc: 'Total doado para campanha', icon: '12', type: 'transaction', values: ['> R$ 1.000', '> R$ 500', '> R$ 100', '= 0'] },
+    ] },
+  'HubSpot': { type: 'CRM (OAuth)', extra: '1,200,532 contatos • 3 objetos', lastSync: '3min atrás', color: '#FFF3E8', log: { source: 'HubSpot', records: '1,200,532', duration: '3m 42s', time: '25/03 12:15', status: 'Sucesso' },
+    fields: [
+      { name: 'Lead Score', desc: 'Score de qualificação (HubSpot)', icon: '12', type: 'model', values: ['Quente', 'Morno', 'Frio'] },
+      { name: 'Lifecycle Stage', desc: 'Estágio do contato', icon: 'Aa', type: 'demo', values: ['Subscriber', 'Lead', 'MQL', 'SQL', 'Customer'] },
+      { name: 'Última Interação', desc: 'Dias desde última interação', icon: '12', type: 'event', values: ['< 7 dias', '< 30 dias', '< 90 dias', '> 90 dias'] },
+    ] },
+  'Salesforce': { type: 'CRM (OAuth)', extra: '845,231 leads • 2 objetos', lastSync: '10min atrás', color: '#E8F0FF', log: { source: 'Salesforce', records: '845,231', duration: '4m 08s', time: '25/03 10:00', status: 'Sucesso' },
+    fields: [
+      { name: 'Account Type', desc: 'Tipo de conta (Salesforce)', icon: 'Aa', type: 'demo', values: ['Prospect', 'Customer', 'Partner', 'Competitor'] },
+      { name: 'Opportunity Stage', desc: 'Fase da oportunidade', icon: 'Aa', type: 'demo', values: ['Prospecting', 'Qualification', 'Proposal', 'Closed Won'] },
+    ] },
+  'Redshift': { type: 'Data Warehouse', extra: '980K registros • 3 tabelas', lastSync: '8min atrás', color: '#FFE8E8', log: { source: 'Redshift', records: '980,000', duration: '1m 55s', time: '25/03 11:45', status: 'Sucesso' },
+    fields: [
+      { name: 'Frequência Acesso', desc: 'Frequência de acesso ao site', icon: '12', type: 'event', values: ['Diário', 'Semanal', 'Mensal', 'Inativo'] },
+      { name: 'Device Type', desc: 'Dispositivo principal', icon: 'Aa', type: 'demo', values: ['Mobile', 'Desktop', 'Tablet'] },
+    ] },
+  'PostgreSQL': { type: 'Database', extra: '520K registros • 5 tabelas', lastSync: '6min atrás', color: '#E8F8FF', log: { source: 'PostgreSQL', records: '520,000', duration: '1m 12s', time: '25/03 09:30', status: 'Sucesso' },
+    fields: [
+      { name: 'Cidade', desc: 'Cidade de residência (PG)', icon: 'Aa', type: 'geo', values: ['São Paulo', 'Rio de Janeiro', 'Belo Horizonte', 'Salvador', 'Curitiba', 'Recife'] },
+      { name: 'Gênero', desc: 'Gênero declarado', icon: 'Aa', type: 'demo', values: ['Masculino', 'Feminino', 'Não Declarado'] },
+    ] },
+  'MySQL': { type: 'Database', extra: '310K registros • 4 tabelas', lastSync: '12min atrás', color: '#FFF8E8', log: { source: 'MySQL', records: '310,000', duration: '0m 48s', time: '25/03 08:00', status: 'Sucesso' },
+    fields: [
+      { name: 'Renda Familiar', desc: 'Estimativa de renda (MySQL)', icon: '12', type: 'demo', values: ['> R$ 20K', '> R$ 10K', '> R$ 5K', '< R$ 5K'] },
+    ] },
+  'Google Sheets': { type: 'Planilha (OAuth)', extra: '15K registros • 2 sheets', lastSync: '1min atrás', color: '#E8FFE8', log: { source: 'Google Sheets', records: '15,000', duration: '0m 05s', time: '25/03 14:00', status: 'Sucesso' },
+    fields: [] },
+  'API REST': { type: 'API Endpoint', extra: '312K registros', lastSync: '4min atrás', color: '#F0E8FF', log: { source: 'API REST', records: '312,104', duration: '1m 22s', time: '25/03 14:32', status: 'Sucesso' },
+    fields: [
+      { name: 'Engajamento SMS', desc: 'Respondeu SMS de campanha', icon: 'Aa', type: 'event', values: ['Sim', 'Não'] },
+    ] },
+  'Webhook': { type: 'Webhook Endpoint', extra: '89K eventos', lastSync: 'Tempo real', color: '#FFE8F8', log: { source: 'Webhook', records: '89,000', duration: '—', time: 'Tempo real', status: 'Ativo' },
+    fields: [
+      { name: 'Evento Realtime', desc: 'Eventos em tempo real', icon: 'Aa', type: 'event', values: ['page_view', 'form_submit', 'video_play', 'share'] },
+    ] },
+  'SFTP': { type: 'Arquivo Remoto', extra: '78K registros • 4 arquivos', lastSync: '1h atrás', color: '#F5F0E8', log: { source: 'SFTP', records: '78,000', duration: '0m 32s', time: '25/03 07:00', status: 'Sucesso' },
+    fields: [] },
 };
 
 const INGESTION_LOG = [
@@ -698,10 +739,69 @@ const DataSyncPage = ({ sourceState, sourceActions, platformData }) => {
   };
 
   const filteredSources = filterCategory === 'Todos' ? SOURCE_CATALOG : SOURCE_CATALOG.filter(s => s.category === filterCategory);
-  const stepLabels = ['Selecionar Fonte', 'Autenticação', 'Configurar', 'Testar'];
+  const [schemaTable, setSchemaTable] = useState('');
+  const [schemaUniqueKey, setSchemaUniqueKey] = useState('');
+  const [schemaDedupe, setSchemaDedupe] = useState(false);
+  const [schemaFields, setSchemaFields] = useState([]);
+  const [joinTable, setJoinTable] = useState('');
+  const [joinCardinality, setJoinCardinality] = useState('many-to-one');
+  const [joinKeyLeft, setJoinKeyLeft] = useState('');
+  const [joinKeyRight, setJoinKeyRight] = useState('');
 
-  const tabs = ['connections', 'datasets', 'logs'];
-  const tabLabels = { connections: 'Connections', datasets: 'Datasets', logs: 'Logs' };
+  const SCHEMA_TABLES = {
+    Snowflake: { project: 'REVFY_PROD', schema: 'ELECTORAL', tables: ['eleitores_360', 'eventos_campanha', 'transacoes_doacao', 'perfis_enriquecidos', 'scores_ml'] },
+    BigQuery: { project: 'revfy-analytics', schema: 'campaign_data', tables: ['bq_contacts', 'bq_transactions', 'bq_campaign_events', 'bq_segments_ml'] },
+    HubSpot: { project: 'hubspot-api', schema: 'crm', tables: ['hubspot_contacts', 'hubspot_companies', 'hubspot_deals'] },
+    Salesforce: { project: 'sf-api', schema: 'sobjects', tables: ['sf_leads', 'sf_accounts', 'sf_opportunities'] },
+    Redshift: { project: 'revfy-cluster', schema: 'public', tables: ['rs_analytics', 'rs_events', 'rs_customers'] },
+    PostgreSQL: { project: 'revfy-db', schema: 'public', tables: ['pg_users', 'pg_orders', 'pg_events', 'pg_segments'] },
+  };
+
+  const FIELD_DEFS = [
+    { name: 'eleitor_id', type: 'STRING', alias: 'ID Eleitor', pii: false, showDefault: true, excludePersonalization: false },
+    { name: 'email', type: 'STRING', alias: 'Email', pii: true, showDefault: false, excludePersonalization: false },
+    { name: 'cpf_hash', type: 'STRING', alias: 'CPF (Hash)', pii: true, showDefault: false, excludePersonalization: true },
+    { name: 'nome_completo', type: 'STRING', alias: 'Nome', pii: true, showDefault: false, excludePersonalization: false },
+    { name: 'estado', type: 'STRING', alias: 'Estado', pii: false, showDefault: true, excludePersonalization: false },
+    { name: 'cidade', type: 'STRING', alias: 'Cidade', pii: false, showDefault: true, excludePersonalization: false },
+    { name: 'faixa_etaria', type: 'STRING', alias: 'Faixa Etária', pii: false, showDefault: true, excludePersonalization: false },
+    { name: 'classe_social', type: 'STRING', alias: 'Classe Social', pii: false, showDefault: true, excludePersonalization: false },
+    { name: 'score_engajamento', type: 'FLOAT', alias: 'Score Engajamento', pii: false, showDefault: true, excludePersonalization: false },
+    { name: 'propensao_voto', type: 'FLOAT', alias: 'Propensão de Voto', pii: false, showDefault: true, excludePersonalization: false },
+    { name: 'data_nascimento', type: 'DATE', alias: 'Data Nascimento', pii: true, showDefault: false, excludePersonalization: true },
+    { name: 'telefone', type: 'STRING', alias: 'Telefone', pii: true, showDefault: false, excludePersonalization: true },
+    { name: 'ultimo_engajamento', type: 'TIMESTAMP', alias: 'Último Engajamento', pii: false, showDefault: true, excludePersonalization: false },
+    { name: 'canal_preferido', type: 'STRING', alias: 'Canal Preferido', pii: false, showDefault: false, excludePersonalization: false },
+  ];
+
+  const initSchemaFields = () => { setSchemaFields(FIELD_DEFS.map(f => ({ ...f }))); };
+
+  const INGEST_SOURCES = [
+    { name: 'Meta Ads', desc: 'Facebook & Instagram Ads', icon: 'f', color: '#1877F2' },
+    { name: 'Google Ads', desc: 'Search, Display & YouTube', icon: 'g', color: '#4285F4' },
+    { name: 'TikTok Ads', desc: 'TikTok For Business', icon: 'tt', color: '#000' },
+    { name: 'WhatsApp Business', desc: 'Messaging & Engagement', icon: 'wa', color: '#25D366' },
+    { name: 'Braze', desc: 'Cross-channel engagement', icon: 'B', color: '#FF6F20' },
+    { name: 'Salesforce MC', desc: 'Marketing Cloud', icon: 'sf', color: '#00A1E0' },
+  ];
+
+  const DATASET_GROUPS = [
+    { name: 'Eleitores', desc: 'Perfis individuais de eleitores', primary: 'eleitores_360', tables: [
+      { name: 'eleitores_360', role: 'Primary', records: '3.1M', join: null },
+      { name: 'eventos_campanha', role: 'Events', records: '12.4M', join: { key: 'eleitor_id', cardinality: 'Many-to-One' } },
+      { name: 'transacoes_doacao', role: 'Transactions', records: '847K', join: { key: 'eleitor_id', cardinality: 'Many-to-One' } },
+      { name: 'scores_ml', role: 'ML Scores', records: '3.1M', join: { key: 'eleitor_id', cardinality: 'One-to-One' } },
+    ]},
+    { name: 'Domicílios', desc: 'Audiências a nível de domicílio', primary: 'domicilios_ibge', tables: [
+      { name: 'domicilios_ibge', role: 'Primary', records: '1.8M', join: null },
+      { name: 'eleitores_360', role: 'Members', records: '3.1M', join: { key: 'domicilio_id', cardinality: 'Many-to-One' } },
+    ]},
+  ];
+
+  const stepLabels = ['Selecionar Fonte', 'Autenticação', 'Schema Mapping', 'Campos & Joins', 'Testar'];
+
+  const tabs = ['connections', 'datasets', 'groups', 'ingest', 'logs'];
+  const tabLabels = { connections: 'Connections', datasets: 'Datasets', groups: 'Dataset Groups', ingest: 'Ingest', logs: 'Logs' };
 
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -774,6 +874,85 @@ const DataSyncPage = ({ sourceState, sourceActions, platformData }) => {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'groups' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#000', margin: 0 }}>Dataset Groups</h3>
+                <p style={{ fontSize: '12px', color: COLORS.muted, margin: '4px 0 0' }}>Grupos de tabelas com joins pré-configurados. Cada grupo tem uma tabela primária que define o nível de granularidade.</p>
+              </div>
+              <button style={{ padding: '8px 16px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>+ Novo Grupo</button>
+            </div>
+            {DATASET_GROUPS.map((group, gIdx) => (
+              <div key={gIdx} style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, padding: '20px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: COLORS.bgBlue, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Users size={18} color={COLORS.primary} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '15px', fontWeight: '700', color: '#000' }}>{group.name}</div>
+                      <div style={{ fontSize: '12px', color: COLORS.muted }}>{group.desc}</div>
+                    </div>
+                  </div>
+                  <Badge color="green">Ativo</Badge>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {group.tables.map((t, tIdx) => (
+                    <div key={tIdx} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', backgroundColor: t.role === 'Primary' ? COLORS.bgBlue : COLORS.lightGray, borderRadius: '8px', border: t.role === 'Primary' ? `1px solid ${COLORS.primary}30` : `1px solid ${COLORS.border}` }}>
+                      {tIdx > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                          <div style={{ width: '20px', height: '1px', backgroundColor: COLORS.primary }} />
+                          <span style={{ fontSize: '10px', fontWeight: '700', color: COLORS.primary, backgroundColor: COLORS.bgBlue, padding: '2px 6px', borderRadius: '3px', whiteSpace: 'nowrap' }}>{t.join.cardinality}</span>
+                          <div style={{ width: '12px', height: '1px', backgroundColor: COLORS.primary }} />
+                        </div>
+                      )}
+                      <div style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: '600', color: '#000', flex: 1 }}>{t.name}</div>
+                      <Badge color={t.role === 'Primary' ? 'blue' : 'green'} variant="soft">{t.role}</Badge>
+                      <span style={{ fontSize: '11px', color: COLORS.muted }}>{t.records}</span>
+                      {t.join && <span style={{ fontSize: '10px', color: COLORS.muted, fontFamily: 'monospace' }}>ON {t.join.key}</span>}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: '12px', padding: '8px 12px', backgroundColor: COLORS.lightGray, borderRadius: '6px', fontSize: '11px', color: COLORS.muted }}>
+                  <strong style={{ color: '#000' }}>Wide Table Recomendação:</strong> Para performance ótima em bancos colunares, consolide atributos do eleitor diretamente na tabela primária para reduzir joins em runtime.
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'ingest' && (
+          <div>
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#000', marginBottom: '4px' }}>Ingest Connections (Reverse ETL)</h3>
+              <p style={{ fontSize: '12px', color: COLORS.muted }}>Traga dados de ferramentas de marketing de volta para o Data Warehouse para segmentação e relatórios avançados.</p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+              {INGEST_SOURCES.map((src, i) => (
+                <div key={i} style={{ padding: '20px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, cursor: 'pointer', transition: 'all 0.2s' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = src.color; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.transform = 'translateY(0)'; }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: src.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '700', color: src.color }}>{src.icon}</div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: '700', color: '#000' }}>{src.name}</div>
+                      <div style={{ fontSize: '11px', color: COLORS.muted }}>{src.desc}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', color: COLORS.muted }}>Sync diário</span>
+                    <button style={{ padding: '6px 14px', fontSize: '11px', fontWeight: '600', border: `1px solid ${src.color}40`, borderRadius: '6px', backgroundColor: 'transparent', color: src.color, cursor: 'pointer' }}>Conectar</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: '16px', backgroundColor: COLORS.bgBlue, borderRadius: '8px', fontSize: '12px', color: COLORS.primary }}>
+              <strong>Zero-Copy Architecture:</strong> Dados de marketing são ingeridos diretamente no seu Data Warehouse via pipelines automatizados. Sem movimentação de dados desnecessária — apenas atualizações incrementais.
             </div>
           </div>
         )}
@@ -924,38 +1103,155 @@ const DataSyncPage = ({ sourceState, sourceActions, platformData }) => {
 
         {wizardStep === 2 && selectedSource && (
           <div>
-            <div style={{ padding: '12px 16px', backgroundColor: `${COLORS.success}10`, borderRadius: '8px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px', border: `1px solid ${COLORS.success}30` }}>
+            <div style={{ padding: '12px 16px', backgroundColor: `${COLORS.success}10`, borderRadius: '8px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', border: `1px solid ${COLORS.success}30` }}>
               <Check size={16} color={COLORS.success} />
               <span style={{ fontSize: '13px', fontWeight: '600', color: '#000' }}>Conexão com {selectedSource.name} ativa</span>
-              <span style={{ fontSize: '11px', color: COLORS.muted, marginLeft: 'auto' }}>Latência: 38ms</span>
+              <span style={{ fontSize: '11px', color: COLORS.muted, marginLeft: 'auto' }}>Schema detectado</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#000', marginBottom: '12px' }}>Mapear Tabela Primária</h4>
+            <p style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '16px' }}>Selecione a tabela principal que será usada para construir audiências. Esta é a sua tabela de eleitores/clientes.</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#000', marginBottom: '6px' }}>Nome da Conexão</label>
-                <input type="text" defaultValue={selectedSource.name} style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px', boxSizing: 'border-box' }} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#000', marginBottom: '6px' }}>Frequência de Sync</label>
-                <select style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px' }}>
-                  <option>A cada 15 minutos</option><option>A cada hora</option><option>A cada 6 horas</option><option>Diariamente</option><option>Manual</option>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: COLORS.muted, marginBottom: '4px' }}>Projeto / Database</label>
+                <select style={{ width: '100%', padding: '8px 10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '12px', backgroundColor: COLORS.lightGray }}>
+                  <option>{(SCHEMA_TABLES[selectedSource.name] || SCHEMA_TABLES.Snowflake).project}</option>
                 </select>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#000', marginBottom: '6px' }}>Objetos para Sincronizar</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {['Contatos', 'Empresas', 'Negócios', 'Listas'].map((obj) => (
-                    <label key={obj} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', backgroundColor: COLORS.lightGray, borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>
-                      <input type="checkbox" defaultChecked={obj === 'Contatos' || obj === 'Listas'} style={{ width: '16px', height: '16px' }} />{obj}
-                    </label>
-                  ))}
-                </div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: COLORS.muted, marginBottom: '4px' }}>Schema</label>
+                <select style={{ width: '100%', padding: '8px 10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '12px', backgroundColor: COLORS.lightGray }}>
+                  <option>{(SCHEMA_TABLES[selectedSource.name] || SCHEMA_TABLES.Snowflake).schema}</option>
+                </select>
               </div>
             </div>
-            <button onClick={() => setWizardStep(3)} style={{ width: '100%', marginTop: '20px', padding: '12px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Testar e Conectar</button>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: COLORS.muted, marginBottom: '4px' }}>Tabela Primária (Eleitores)</label>
+              <select value={schemaTable} onChange={e => { setSchemaTable(e.target.value); initSchemaFields(); }} style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.primary}40`, borderRadius: '8px', fontSize: '13px', fontWeight: '600' }}>
+                <option value="">Selecione uma tabela...</option>
+                {(SCHEMA_TABLES[selectedSource.name] || SCHEMA_TABLES.Snowflake).tables.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            {schemaTable && (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: COLORS.muted, marginBottom: '4px' }}>Chave Única</label>
+                    <select value={schemaUniqueKey} onChange={e => setSchemaUniqueKey(e.target.value)} style={{ width: '100%', padding: '8px 10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '12px' }}>
+                      <option value="">Selecione...</option>
+                      <option value="eleitor_id">eleitor_id</option>
+                      <option value="cpf_hash">cpf_hash</option>
+                      <option value="email">email</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', color: COLORS.muted, marginBottom: '4px' }}>Tipo do Dataset</label>
+                    <select style={{ width: '100%', padding: '8px 10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '12px' }}>
+                      <option>Customers (Eleitores)</option>
+                      <option>Events</option>
+                      <option>Transactions</option>
+                    </select>
+                  </div>
+                </div>
+                {schemaUniqueKey && (
+                  <div style={{ padding: '10px 14px', backgroundColor: `${COLORS.success}10`, borderRadius: '8px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                    <Check size={14} color={COLORS.success} />
+                    <span style={{ color: COLORS.success, fontWeight: '600' }}>Chave única "{schemaUniqueKey}" validada</span>
+                    <span style={{ color: COLORS.muted }}>— 0 duplicatas detectadas</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', backgroundColor: COLORS.lightGray, borderRadius: '8px', marginBottom: '16px' }}>
+                  <div onClick={() => setSchemaDedupe(!schemaDedupe)} style={{ width: '32px', height: '18px', borderRadius: '9px', cursor: 'pointer', backgroundColor: schemaDedupe ? COLORS.primary : '#D1D5DB', position: 'relative', flexShrink: 0 }}>
+                    <div style={{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: '#fff', position: 'absolute', top: '2px', left: schemaDedupe ? '16px' : '2px', transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,.2)' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: '600', color: '#000' }}>Resolução de Duplicidade</div>
+                    <div style={{ fontSize: '11px', color: COLORS.muted }}>Prioriza linhas com menos valores nulos — seleção determinística</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <button onClick={() => { if (schemaTable) { if (schemaFields.length === 0) initSchemaFields(); setWizardStep(3); } }} disabled={!schemaTable} style={{ width: '100%', padding: '12px', backgroundColor: schemaTable ? COLORS.primary : COLORS.border, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: schemaTable ? 'pointer' : 'default' }}>Continuar — Configurar Campos</button>
           </div>
         )}
 
         {wizardStep === 3 && selectedSource && (
+          <div>
+            <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#000', marginBottom: '4px' }}>Configuração de Campos</h4>
+            <p style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '16px' }}>Configure aliases, marque campos PII e selecione colunas visíveis por padrão.</p>
+            <div style={{ maxHeight: '280px', overflowY: 'auto', border: `1px solid ${COLORS.border}`, borderRadius: '8px', marginBottom: '16px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                <thead><tr style={{ backgroundColor: COLORS.lightGray, position: 'sticky', top: 0 }}>
+                  <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Coluna</th>
+                  <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Tipo</th>
+                  <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: COLORS.muted }}>Alias</th>
+                  <th style={{ padding: '8px 6px', textAlign: 'center', fontWeight: '700', color: COLORS.muted }}>PII</th>
+                  <th style={{ padding: '8px 6px', textAlign: 'center', fontWeight: '700', color: COLORS.muted }}>Padrão</th>
+                  <th style={{ padding: '8px 6px', textAlign: 'center', fontWeight: '700', color: COLORS.muted }}>Excluir</th>
+                </tr></thead>
+                <tbody>
+                  {schemaFields.map((f, i) => (
+                    <tr key={i} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                      <td style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: '11px', fontWeight: '600' }}>{f.name}</td>
+                      <td style={{ padding: '6px 10px' }}><span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: f.type === 'STRING' ? '#EEF2FF' : f.type === 'FLOAT' ? '#FEF3C7' : '#E0F2FE', color: f.type === 'STRING' ? '#4338CA' : f.type === 'FLOAT' ? '#92400E' : '#0369A1', fontWeight: '600' }}>{f.type}</span></td>
+                      <td style={{ padding: '4px 6px' }}><input type="text" value={f.alias} onChange={e => { const nf = [...schemaFields]; nf[i] = { ...nf[i], alias: e.target.value }; setSchemaFields(nf); }} style={{ width: '100%', padding: '4px 6px', border: `1px solid ${COLORS.border}`, borderRadius: '4px', fontSize: '11px', boxSizing: 'border-box' }} /></td>
+                      <td style={{ padding: '4px', textAlign: 'center' }}><input type="checkbox" checked={f.pii} onChange={() => { const nf = [...schemaFields]; nf[i] = { ...nf[i], pii: !nf[i].pii }; setSchemaFields(nf); }} style={{ width: '14px', height: '14px', accentColor: COLORS.error }} /></td>
+                      <td style={{ padding: '4px', textAlign: 'center' }}><input type="checkbox" checked={f.showDefault} onChange={() => { const nf = [...schemaFields]; nf[i] = { ...nf[i], showDefault: !nf[i].showDefault }; setSchemaFields(nf); }} style={{ width: '14px', height: '14px', accentColor: COLORS.primary }} /></td>
+                      <td style={{ padding: '4px', textAlign: 'center' }}><input type="checkbox" checked={f.excludePersonalization} onChange={() => { const nf = [...schemaFields]; nf[i] = { ...nf[i], excludePersonalization: !nf[i].excludePersonalization }; setSchemaFields(nf); }} style={{ width: '14px', height: '14px', accentColor: '#F59E0B' }} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ padding: '10px 12px', backgroundColor: COLORS.bgBlue, borderRadius: '8px', marginBottom: '16px', fontSize: '11px', color: COLORS.primary }}>
+              <strong>PII:</strong> Oculta valores na UI e restringe filtros. <strong>Padrão:</strong> Aparece automaticamente no Audience Builder. <strong>Excluir:</strong> Permite filtros mas bloqueia exportação.
+            </div>
+
+            {/* Join Configuration */}
+            <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#000', marginBottom: '8px', borderTop: `1px solid ${COLORS.border}`, paddingTop: '16px' }}>Join de Tabelas</h4>
+            <p style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '12px' }}>Configure como tabelas de eventos e transações se conectam à tabela primária.</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: COLORS.muted, marginBottom: '4px' }}>Tabela para Join</label>
+                <select value={joinTable} onChange={e => setJoinTable(e.target.value)} style={{ width: '100%', padding: '8px 10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '12px' }}>
+                  <option value="">Selecione...</option>
+                  {(SCHEMA_TABLES[selectedSource.name] || SCHEMA_TABLES.Snowflake).tables.filter(t => t !== schemaTable).map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '600', color: COLORS.muted, marginBottom: '4px' }}>Cardinalidade</label>
+                <select value={joinCardinality} onChange={e => setJoinCardinality(e.target.value)} style={{ width: '100%', padding: '8px 10px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '12px' }}>
+                  <option value="many-to-one">Many-to-One</option>
+                  <option value="one-to-one">One-to-One</option>
+                  <option value="many-to-many">Many-to-Many</option>
+                </select>
+              </div>
+            </div>
+            {joinTable && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', backgroundColor: COLORS.lightGray, borderRadius: '8px', marginBottom: '16px' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '11px', color: COLORS.muted, marginBottom: '2px' }}>{schemaTable || 'primary'}</div>
+                  <select value={joinKeyLeft} onChange={e => setJoinKeyLeft(e.target.value)} style={{ width: '100%', padding: '6px 8px', border: `1px solid ${COLORS.border}`, borderRadius: '4px', fontSize: '11px' }}>
+                    <option value="">Chave...</option>
+                    <option value="eleitor_id">eleitor_id</option>
+                    <option value="cpf_hash">cpf_hash</option>
+                  </select>
+                </div>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: COLORS.primary, padding: '4px 8px', backgroundColor: COLORS.bgBlue, borderRadius: '4px' }}>=</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '11px', color: COLORS.muted, marginBottom: '2px' }}>{joinTable}</div>
+                  <select value={joinKeyRight} onChange={e => setJoinKeyRight(e.target.value)} style={{ width: '100%', padding: '6px 8px', border: `1px solid ${COLORS.border}`, borderRadius: '4px', fontSize: '11px' }}>
+                    <option value="">Chave...</option>
+                    <option value="eleitor_id">eleitor_id</option>
+                    <option value="transaction_id">transaction_id</option>
+                  </select>
+                </div>
+              </div>
+            )}
+            <button onClick={() => setWizardStep(4)} style={{ width: '100%', padding: '12px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Testar e Finalizar</button>
+          </div>
+        )}
+
+        {wizardStep === 4 && selectedSource && (
           <div style={{ textAlign: 'center', padding: '24px 0' }}>
             {!testing && !testDone && (
               <div>
@@ -990,7 +1286,7 @@ const DataSyncPage = ({ sourceState, sourceActions, platformData }) => {
           </div>
         )}
 
-        {wizardStep > 0 && wizardStep < 3 && !authenticating && (
+        {wizardStep > 0 && wizardStep < 4 && !authenticating && (
           <button onClick={() => { if (wizardStep === 1) { setAuthDone(false); setAuthStage(0); } setWizardStep(wizardStep - 1); }} style={{ width: '100%', marginTop: '12px', padding: '10px', backgroundColor: 'transparent', color: COLORS.muted, border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px', cursor: 'pointer' }}>← Voltar</button>
         )}
       </Modal>
@@ -1103,16 +1399,31 @@ const AudienciasPage = ({ platformData }) => {
   const treatmentCount = Math.round(currentBuilder.audienceSize * (currentBuilder.treatment / 100));
   const controlCount = currentBuilder.audienceSize - treatmentCount;
 
-  const availableFields = [
-    { name: 'Email', desc: 'Endereço de email do eleitor', icon: 'Aa' },
-    { name: 'Cidade', desc: 'Cidade de residência', icon: 'Aa' },
-    { name: 'Estado', desc: 'Estado de residência', icon: 'Aa' },
-    { name: 'CEP', desc: 'Código postal', icon: '12' },
-    { name: 'Faixa Etária', desc: 'Faixa etária do eleitor', icon: 'Aa' },
-    { name: 'Renda Familiar', desc: 'Estimativa de renda familiar', icon: '12' },
-    { name: 'Score Engajamento', desc: 'Score de propensão a engajamento', icon: '12' },
-    { name: 'Classe Social', desc: 'Classificação socioeconômica', icon: 'Aa' },
+  // Base fields always available (from Upload CSV + Revfy Pixel)
+  const baseFields = [
+    { name: 'Email', desc: 'Endereço de email do eleitor', icon: 'Aa', source: 'Revfy Pixel', type: 'demo' },
+    { name: 'CEP', desc: 'Código postal', icon: '12', source: 'Upload CSV', type: 'geo' },
   ];
+
+  // Dynamic fields from connected sources
+  const sourceFields = useMemo(() => {
+    const fields = [];
+    const seen = new Set();
+    (platformData.activeSourceNames || []).forEach(sourceName => {
+      const connData = SOURCE_CONNECTED_DATA[sourceName];
+      if (connData?.fields) {
+        connData.fields.forEach(f => {
+          if (!seen.has(f.name)) {
+            seen.add(f.name);
+            fields.push({ ...f, source: sourceName });
+          }
+        });
+      }
+    });
+    return fields;
+  }, [platformData.activeSourceNames]);
+
+  const availableFields = [...baseFields, ...sourceFields];
 
   const filterTypeColor = (type) => {
     const map = { geo: '#3B82F6', demo: '#8B5CF6', model: '#F59E0B', event: '#10B981', audience: '#EC4899', transaction: '#06B6D4' };
@@ -1228,18 +1539,22 @@ const AudienciasPage = ({ platformData }) => {
                       </div>
                       {filterDropdownOpen === sIdx && (
                         <div style={{ position: 'absolute', top: '100%', left: '78px', marginTop: '4px', backgroundColor: COLORS.cardBg, borderRadius: '10px', border: `1px solid ${COLORS.border}`, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 50, width: '280px', padding: '8px' }}>
-                          <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '700', color: COLORS.primary, borderBottom: `1px solid ${COLORS.border}`, marginBottom: '4px' }}>Campos Disponíveis</div>
+                          <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '700', color: COLORS.primary, borderBottom: `1px solid ${COLORS.border}`, marginBottom: '4px' }}>Campos Disponíveis ({availableFields.length})</div>
+                          <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
                           {availableFields.map((field, i) => (
                             <div key={i} onClick={() => setFilterDropdownOpen(null)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
                               onMouseEnter={e => e.currentTarget.style.backgroundColor = COLORS.lightGray}
                               onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                              <span style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: COLORS.lightGray, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '700', color: COLORS.muted }}>{field.icon}</span>
-                              <div>
+                              <span style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: filterTypeColor(field.type || 'demo') + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '700', color: filterTypeColor(field.type || 'demo') }}>{field.icon}</span>
+                              <div style={{ flex: 1 }}>
                                 <div style={{ fontWeight: '600', color: '#000' }}>{field.name}</div>
                                 <div style={{ fontSize: '11px', color: COLORS.muted }}>{field.desc}</div>
                               </div>
+                              {field.source && <span style={{ fontSize: '9px', fontWeight: '600', color: COLORS.muted, backgroundColor: COLORS.lightGray, padding: '2px 6px', borderRadius: '3px', whiteSpace: 'nowrap' }}>{field.source}</span>}
                             </div>
                           ))}
+                          </div>
+                          {availableFields.length <= 2 && <div style={{ padding: '8px 10px', fontSize: '11px', color: COLORS.muted, fontStyle: 'italic' }}>Conecte mais fontes em Data Sync para desbloquear campos adicionais</div>}
                         </div>
                       )}
                     </div>
