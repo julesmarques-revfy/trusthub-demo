@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, Fragment } from 'react';
-import { Home, Database, Table2, Users, Send, RefreshCw, Brain, Shield, DollarSign, Building2, Plug, UserCog, Calendar, Plus, Trash2, MoreVertical, Check, AlertCircle, Snowflake, Link2, Cloud, FileSpreadsheet, Cog, Radio, TrendingUp, Zap, UserPlus, FileText, ShieldCheck, Wrench, ClipboardList, Megaphone, Ban, Search, Archive, BarChart3, Pause, Play, CircleDot, Upload, FolderSync, Webhook, ChevronRight, Activity, Target, Eye, FileDown, Lock } from 'lucide-react';
+import { Home, Database, Table2, Users, Send, RefreshCw, Brain, Shield, DollarSign, Building2, Plug, UserCog, Calendar, Plus, Trash2, MoreVertical, Check, AlertCircle, Snowflake, Link2, Cloud, FileSpreadsheet, Cog, Radio, TrendingUp, Zap, UserPlus, FileText, ShieldCheck, Wrench, ClipboardList, Megaphone, Ban, Search, Archive, BarChart3, Pause, Play, CircleDot, Upload, FolderSync, Webhook, ChevronRight, ChevronDown, Activity, Target, Eye, FileDown, Lock, Filter, GitCompareArrows, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const COLORS = {
@@ -433,45 +433,218 @@ const INGESTION_LOG = [
   { source: 'Revfy Pixel', records: '3,100,000', duration: '—', time: 'Tempo real', status: 'Ativo' },
 ];
 
-const OverviewPage = ({ platformData }) => (
-  <div style={{ flex: 1, overflowY: 'auto' }}>
-    <div style={{ padding: '32px' }}>
-      <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '32px', color: '#000' }}>Overview</h1>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '40px' }}>
-        {platformData.kpis.map((kpi, idx) => (<KPICard key={idx} {...kpi} />))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '32px' }}>
-        <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', color: '#000' }}>Registros Processados (últimos 30 dias)</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={MOCK_DATA.chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} /><XAxis dataKey="day" stroke={COLORS.muted} /><YAxis stroke={COLORS.muted} /><Tooltip /><Line type="monotone" dataKey="records" stroke={COLORS.primary} strokeWidth={2} dot={{ fill: COLORS.primary }} />
-            </LineChart>
-          </ResponsiveContainer>
+const FilterDropdown = ({ label, options, value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(!open)} style={{
+        display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', fontSize: '13px', fontWeight: '500',
+        backgroundColor: value !== options[0] ? COLORS.bgBlue : COLORS.cardBg, color: value !== options[0] ? COLORS.primary : '#333',
+        border: `1px solid ${value !== options[0] ? COLORS.primary + '40' : COLORS.border}`, borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap',
+      }}>
+        {label}: {value} <ChevronDown size={14} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '110%', left: 0, backgroundColor: COLORS.cardBg, borderRadius: '10px',
+          border: `1px solid ${COLORS.border}`, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 50, minWidth: '180px', padding: '4px',
+        }}>
+          {options.map(opt => (
+            <div key={opt} onClick={() => { onChange(opt); setOpen(false); }} style={{
+              padding: '8px 14px', fontSize: '13px', cursor: 'pointer', borderRadius: '6px', fontWeight: opt === value ? '600' : '400',
+              backgroundColor: opt === value ? COLORS.bgBlue : 'transparent', color: opt === value ? COLORS.primary : '#333',
+            }}
+              onMouseEnter={e => { if (opt !== value) e.currentTarget.style.backgroundColor = COLORS.lightGray; }}
+              onMouseLeave={e => { if (opt !== value) e.currentTarget.style.backgroundColor = 'transparent'; }}
+            >{opt}</div>
+          ))}
         </div>
-        <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', color: '#000' }}>Atividade Recente</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13px' }}>
-            {platformData.recentActivity.map((activity, idx) => (
-              <div key={idx} style={{ padding: '12px', backgroundColor: COLORS.lightGray, borderRadius: '8px', borderLeft: `3px solid ${COLORS.primary}` }}>
-                <div style={{ fontWeight: '600', color: '#000', marginBottom: '2px' }}>{activity.action}</div>
-                <div style={{ color: COLORS.muted, fontSize: '12px' }}>{activity.detail} • {activity.time}</div>
+      )}
+    </div>
+  );
+};
+
+const OverviewPage = ({ platformData }) => {
+  const [timeframe, setTimeframe] = useState('Últimos 30 dias');
+  const [audience, setAudience] = useState('Todas');
+  const [campaign, setCampaign] = useState('Todas');
+  const [site, setSite] = useState('Todos');
+  const [compare, setCompare] = useState(false);
+
+  const audienceOptions = ['Todas', ...MOCK_DATA.audiences.map(a => a.name)];
+  const campaignOptions = ['Todas', 'Campanha SP', 'Campanha Sudeste', 'Campanha Nacional'];
+  const siteOptions = ['Todos', 'Meta', 'Google Ads', 'TikTok', 'X (Twitter)'];
+  const timeframeOptions = ['Hoje', 'Últimos 7 dias', 'Últimos 30 dias', 'Últimos 90 dias', 'Este mês', 'Mês anterior'];
+
+  const topCampaigns = [
+    { name: 'Campanha SP Capital', conversions: 34521, rate: '4.1%', spend: 'R$ 890K', trend: 'up' },
+    { name: 'Campanha Sudeste Digital', conversions: 28934, rate: '3.8%', spend: 'R$ 720K', trend: 'up' },
+    { name: 'Campanha Nacional TV+Digital', conversions: 21456, rate: '2.9%', spend: 'R$ 1.2M', trend: 'down' },
+    { name: 'Campanha Nordeste Mobile', conversions: 18230, rate: '3.2%', spend: 'R$ 480K', trend: 'up' },
+  ];
+
+  const topSites = [
+    { name: 'Meta (Facebook + Instagram)', impressions: '12.4M', clicks: '487K', ctr: '3.9%', trend: 'up' },
+    { name: 'Google Ads (Search + Display)', impressions: '8.7M', clicks: '312K', ctr: '3.6%', trend: 'up' },
+    { name: 'TikTok Ads', impressions: '6.2M', clicks: '248K', ctr: '4.0%', trend: 'up' },
+    { name: 'X (Twitter) Ads', impressions: '2.1M', clicks: '63K', ctr: '3.0%', trend: 'down' },
+  ];
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div style={{ padding: '32px' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h1 style={{ fontSize: '28px', fontWeight: '700', color: '#000', margin: 0 }}>Overview</h1>
+          <div style={{ fontSize: '12px', color: COLORS.muted }}>Última atualização: Hoje, 14:32</div>
+        </div>
+
+        {/* Global Filters Bar */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', marginBottom: '28px',
+          backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow,
+          flexWrap: 'wrap',
+        }}>
+          <Filter size={16} color={COLORS.muted} />
+          <FilterDropdown label="Período" options={timeframeOptions} value={timeframe} onChange={setTimeframe} />
+          <FilterDropdown label="Audiência" options={audienceOptions} value={audience} onChange={setAudience} />
+          <FilterDropdown label="Campanha" options={campaignOptions} value={campaign} onChange={setCampaign} />
+          <FilterDropdown label="Canal" options={siteOptions} value={site} onChange={setSite} />
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '12px', color: COLORS.muted, fontWeight: '500' }}>Comparar</span>
+            <div onClick={() => setCompare(!compare)} style={{
+              width: '36px', height: '20px', borderRadius: '10px', cursor: 'pointer', position: 'relative', transition: 'background-color 0.2s',
+              backgroundColor: compare ? COLORS.primary : '#D1D5DB',
+            }}>
+              <div style={{
+                width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#fff', position: 'absolute', top: '2px',
+                transition: 'left 0.2s', left: compare ? '18px' : '2px', boxShadow: '0 1px 3px rgba(0,0,0,.2)',
+              }} />
+            </div>
+          </div>
+        </div>
+
+        {/* KPI Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '28px' }}>
+          {platformData.kpis.map((kpi, idx) => (
+            <div key={idx} style={{
+              padding: '20px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`,
+              boxShadow: COLORS.shadow, transition: 'all 0.3s ease', cursor: 'pointer',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,.08)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = COLORS.shadow; }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                <div>
+                  <div style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '6px', fontWeight: '500' }}>{kpi.label}</div>
+                  <div style={{ fontSize: '26px', fontWeight: '700', color: '#000', marginBottom: '6px' }}>{kpi.value}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: '600',
+                    color: kpi.change.startsWith('-') ? COLORS.error : kpi.change.startsWith('de ') ? COLORS.muted : COLORS.success }}>
+                    {!kpi.change.startsWith('de ') && !kpi.change.startsWith('Todos') && (
+                      kpi.change.startsWith('-') ? <ArrowDownRight size={12} /> : <ArrowUpRight size={12} />
+                    )}
+                    {kpi.change}
+                  </div>
+                </div>
+                <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: COLORS.bgBlue, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {getKPIIcon(kpi.icon)}
+                </div>
               </div>
-            ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Charts Row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+          <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#000', margin: 0 }}>Registros Processados</h3>
+              <span style={{ fontSize: '11px', color: COLORS.muted, padding: '4px 10px', backgroundColor: COLORS.lightGray, borderRadius: '6px' }}>{timeframe}</span>
+            </div>
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={MOCK_DATA.chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                <XAxis dataKey="day" stroke={COLORS.muted} fontSize={11} />
+                <YAxis stroke={COLORS.muted} fontSize={11} tickFormatter={v => v >= 1000 ? `${(v/1000).toFixed(0)}K` : v} />
+                <Tooltip formatter={(v) => [v.toLocaleString(), 'Registros']} />
+                <Line type="monotone" dataKey="records" stroke={COLORS.primary} strokeWidth={2} dot={false} />
+                {compare && <Line type="monotone" dataKey="records" stroke={COLORS.cyan} strokeWidth={2} dot={false} strokeDasharray="5 5" />}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#000', margin: 0 }}>Distribuição por Canal</h3>
+              <span style={{ fontSize: '11px', color: COLORS.muted, padding: '4px 10px', backgroundColor: COLORS.lightGray, borderRadius: '6px' }}>Investimento (R$)</span>
+            </div>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={MOCK_DATA.spendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                <XAxis dataKey="channel" stroke={COLORS.muted} fontSize={11} />
+                <YAxis stroke={COLORS.muted} fontSize={11} tickFormatter={v => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : `${(v/1000).toFixed(0)}K`} />
+                <Tooltip formatter={(v) => [`R$ ${(v/1000000).toFixed(2)}M`, 'Investimento']} />
+                <Bar dataKey="spend" fill={COLORS.primary} radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Bottom Row: Top Campaigns + Top Sites + Activity */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px' }}>
+          {/* Top Campaigns */}
+          <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
+            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#000', marginBottom: '16px' }}>Top Campanhas</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {topCampaigns.map((c, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: COLORS.lightGray, borderRadius: '8px' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#000', marginBottom: '2px' }}>{c.name}</div>
+                    <div style={{ fontSize: '11px', color: COLORS.muted }}>{c.conversions.toLocaleString()} conversões • {c.spend}</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', fontWeight: '700', color: c.trend === 'up' ? COLORS.success : COLORS.error }}>
+                    {c.rate} {c.trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Top Sites */}
+          <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
+            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#000', marginBottom: '16px' }}>Top Canais</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {topSites.map((s, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', backgroundColor: COLORS.lightGray, borderRadius: '8px' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#000', marginBottom: '2px' }}>{s.name}</div>
+                    <div style={{ fontSize: '11px', color: COLORS.muted }}>{s.impressions} impressões • {s.clicks} cliques</div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', fontWeight: '700', color: s.trend === 'up' ? COLORS.success : COLORS.error }}>
+                    {s.ctr} {s.trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Activity Feed */}
+          <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
+            <h3 style={{ fontSize: '15px', fontWeight: '700', color: '#000', marginBottom: '16px' }}>Atividade Recente</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {platformData.recentActivity.map((activity, idx) => (
+                <div key={idx} style={{ padding: '10px 12px', backgroundColor: COLORS.lightGray, borderRadius: '8px', borderLeft: `3px solid ${COLORS.primary}` }}>
+                  <div style={{ fontWeight: '600', color: '#000', marginBottom: '2px', fontSize: '13px' }}>{activity.action}</div>
+                  <div style={{ color: COLORS.muted, fontSize: '11px' }}>{activity.detail} • {activity.time}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
-      <div style={{ padding: '24px', backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow }}>
-        <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '20px', color: '#000' }}>Distribuição por Canal</h3>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={MOCK_DATA.spendData}>
-            <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} /><XAxis dataKey="channel" stroke={COLORS.muted} /><YAxis stroke={COLORS.muted} /><Tooltip /><Bar dataKey="spend" fill={COLORS.primary} radius={[8, 8, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const DataSyncPage = ({ sourceState, sourceActions, platformData }) => {
   const [activeTab, setActiveTab] = useState('connections');
@@ -1558,10 +1731,20 @@ export default function RevfyTrustHubDemo() {
       return sum;
     }, 0);
 
-    // Compute KPIs
+    // Compute KPIs dynamically
+    const activeAudiences = MOCK_DATA.audiences.filter(a => a.status === 'Ativo');
+    const connectedDestinations = MOCK_DATA.destinations.filter(d => d.status === 'Conectado');
+    const totalDestinations = MOCK_DATA.destinations.length;
+
     const kpis = MOCK_DATA.kpis.map(kpi => {
       if (kpi.label === 'Registros no DCR') {
-        return { ...kpi, value: totalRecords.toLocaleString() };
+        return { ...kpi, value: totalRecords.toLocaleString(), change: totalRecords > 0 ? `+${(totalRecords * 0.12).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}` : '+0' };
+      }
+      if (kpi.label === 'Audiências Ativas') {
+        return { ...kpi, value: String(activeAudiences.length), change: `de ${MOCK_DATA.audiences.length} total` };
+      }
+      if (kpi.label === 'Canais Conectados') {
+        return { ...kpi, value: `${connectedDestinations.length}/${totalDestinations}`, change: connectedDestinations.length === totalDestinations ? 'Todos conectados' : `${totalDestinations - connectedDestinations.length} pendente(s)` };
       }
       return kpi;
     });
