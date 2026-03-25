@@ -713,9 +713,27 @@ const DataSyncPage = ({ sourceState, sourceActions, platformData }) => {
               </div>
             )}
 
-            {!authenticating && !authDone && selectedSource.auth !== 'none' && (
+            {!authenticating && !authDone && selectedSource.auth === 'credentials' && (
               <div>
-                <button onClick={handleAuthenticate} style={{ width: '100%', padding: '12px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Autenticar</button>
+                {selectedSource.fields.map(field => (
+                  <div key={field} style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '600', color: '#000' }}>{field}</label>
+                    <input type={field.toLowerCase().includes('password') || field.toLowerCase().includes('private key') || field.toLowerCase().includes('secret') ? 'password' : 'text'} placeholder={`Inserir ${field.toLowerCase()}`} style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px', backgroundColor: COLORS.lightGray, outline: 'none', boxSizing: 'border-box' }} onFocus={(e) => e.target.style.borderColor = COLORS.primary} onBlur={(e) => e.target.style.borderColor = COLORS.border} />
+                  </div>
+                ))}
+                <button onClick={handleAuthenticate} style={{ width: '100%', padding: '12px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Zap size={16} /> Conectar a {selectedSource.name}</button>
+                <div style={{ marginTop: '12px', padding: '10px 14px', backgroundColor: `${COLORS.success}10`, borderRadius: '8px', fontSize: '11px', color: COLORS.muted }}><strong style={{ color: COLORS.success }}>Segurança:</strong> Credenciais criptografadas com AES-256. Acesso somente leitura ao schema especificado.</div>
+              </div>
+            )}
+
+            {!authenticating && !authDone && selectedSource.auth === 'oauth' && (
+              <div style={{ textAlign: 'center', padding: '24px' }}>
+                <div style={{ width: '64px', height: '64px', borderRadius: '50%', backgroundColor: `${COLORS.primary}10`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                  <Link2 size={28} color={COLORS.primary} />
+                </div>
+                <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#000', marginBottom: '8px' }}>Autorizar {selectedSource.name}</h3>
+                <p style={{ fontSize: '13px', color: COLORS.muted, marginBottom: '24px' }}>Você será redirecionado para autorizar o acesso via OAuth 2.0</p>
+                <button onClick={handleAuthenticate} style={{ width: '100%', padding: '12px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}><Link2 size={16} /> Autorizar com {selectedSource.name}</button>
               </div>
             )}
 
@@ -1186,14 +1204,20 @@ export default function RevfyTrustHubDemo() {
     const allLogs = [...INGESTION_LOG, ...dynamicLogs];
 
     // Compute total records from active sources
+    const parseRecordCount = (extraStr) => {
+      const match = extraStr.match(/([\d.,]+)\s*(M|K)?\s*registros/i);
+      if (!match) return 0;
+      let num = parseFloat(match[1].replace(',', '.'));
+      if (match[2] === 'M') num *= 1000000;
+      else if (match[2] === 'K') num *= 1000;
+      else num = parseInt(extraStr.split(' ')[0].replace(/[.,]/g, '')) || 0;
+      return Math.round(num);
+    };
     const totalRecords = activeSourceNames.reduce((sum, name) => {
       if (name === 'Upload CSV') return sum + 45231;
       if (name === 'Revfy Pixel') return sum + 3100000;
       const connData = SOURCE_CONNECTED_DATA[name];
-      if (connData) {
-        const recordStr = connData.extra.split(' ')[0].replace(/[,.]/g, '');
-        return sum + parseInt(recordStr) || sum;
-      }
+      if (connData) return sum + parseRecordCount(connData.extra);
       return sum;
     }, 0);
 
