@@ -1028,110 +1028,432 @@ const AudienciasPage = ({ platformData }) => {
   const [selectedAudience, setSelectedAudience] = useState(MOCK_DATA.audiences[0]);
   const [activeTab, setActiveTab] = useState('construtor');
   const [showActivateModal, setShowActivateModal] = useState(false);
+  const [metricsTab, setMetricsTab] = useState('metrics');
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(null);
+  const [audienceDropdownOpen, setAudienceDropdownOpen] = useState(false);
+  const [datasetDropdownOpen, setDatasetDropdownOpen] = useState(false);
+
+  // Canvas block sections — mirrors GrowthLoop's Notion-like approach
+  const builderSections = {
+    'Segmento SP 25-44': {
+      dataset: 'Revfy Pixel — Eleitores',
+      heading: 'Eleitores SP Capital',
+      sections: [
+        { title: 'Perfil 360 / Golden Profiles', filters: [
+          { logic: 'Where', field: 'Estado', op: 'é igual a', values: ['São Paulo'], type: 'geo' },
+          { logic: 'And', field: 'Faixa Etária', op: 'é igual a', values: ['25-34', '35-44'], type: 'demo' },
+          { logic: 'And', field: 'Propensão Engajamento', op: 'é igual a', values: ['Alto', 'Médio-Alto'], type: 'model' },
+        ]},
+        { title: 'Dados Comportamentais', filters: [
+          { logic: 'Where', field: 'Interagiu com campanha', op: 'mais de', values: ['0'], extra: 'nos últimos 30 dias', type: 'event', count: true },
+        ]},
+      ],
+      exclusions: [{ name: 'Base Inativa 90d', size: 123456, type: 'exclude' }],
+      audienceSize: 847293, treatment: 70, revenue: 'R$ 2.4M',
+    },
+    'Lookalike Sudeste': {
+      dataset: 'RevFy IQ — ML Embeddings',
+      heading: 'Expansão Sudeste',
+      sections: [
+        { title: 'Perfil 360 / Golden Profiles', filters: [
+          { logic: 'Where', field: 'Região', op: 'é igual a', values: ['Sudeste'], type: 'geo' },
+          { logic: 'And', field: 'Score Similaridade', op: 'maior que', values: ['0.85'], type: 'model' },
+        ]},
+        { title: 'Audiências Existentes', filters: [
+          { logic: 'Where', field: 'Semelhante a', op: 'top', values: ['5%'], extra: 'de Segmento SP 25-44', type: 'audience' },
+        ]},
+      ],
+      exclusions: [{ name: 'Segmento SP 25-44', size: 847293, type: 'exclude' }],
+      audienceSize: 1567890, treatment: 70, revenue: 'R$ 4.1M',
+    },
+    'Alto Valor - Classe A/B': {
+      dataset: 'Snowflake — Perfis Enriquecidos',
+      heading: 'Alto Valor Socioeconômico',
+      sections: [
+        { title: 'Perfil 360 / Golden Profiles', filters: [
+          { logic: 'Where', field: 'Classe Social', op: 'é igual a', values: ['A', 'B'], type: 'demo' },
+          { logic: 'And', field: 'Renda Familiar', op: 'maior que', values: ['R$ 15.000'], type: 'demo' },
+        ]},
+        { title: 'Dados Transacionais', filters: [
+          { logic: 'Where', field: 'Doação para campanha', op: 'mais de', values: ['0'], extra: 'nos últimos 6 meses', type: 'event', count: true },
+          { logic: 'And', field: 'Valor total doado', op: 'maior que', values: ['R$ 500'], type: 'transaction' },
+        ]},
+      ],
+      exclusions: [],
+      audienceSize: 234567, treatment: 80, revenue: 'R$ 890K',
+    },
+    'Base Inativa 90d': {
+      dataset: 'Revfy Pixel — Eleitores',
+      heading: 'Reativação Base Inativa',
+      sections: [
+        { title: 'Perfil 360 / Golden Profiles', filters: [
+          { logic: 'Where', field: 'Último engajamento', op: 'antes de', values: ['90 dias'], type: 'event' },
+        ]},
+        { title: 'Dados Comportamentais', filters: [
+          { logic: 'Where not', field: 'Abriu email', op: 'nos últimos', values: ['60 dias'], type: 'event' },
+          { logic: 'And not', field: 'Visitou site', op: 'nos últimos', values: ['90 dias'], type: 'event' },
+        ]},
+      ],
+      exclusions: [{ name: 'Alto Valor - Classe A/B', size: 234567, type: 'exclude' }],
+      audienceSize: 123456, treatment: 60, revenue: 'R$ 210K',
+    },
+  };
+
+  const currentBuilder = builderSections[selectedAudience.name] || builderSections['Segmento SP 25-44'];
+  const treatmentCount = Math.round(currentBuilder.audienceSize * (currentBuilder.treatment / 100));
+  const controlCount = currentBuilder.audienceSize - treatmentCount;
+
+  const availableFields = [
+    { name: 'Email', desc: 'Endereço de email do eleitor', icon: 'Aa' },
+    { name: 'Cidade', desc: 'Cidade de residência', icon: 'Aa' },
+    { name: 'Estado', desc: 'Estado de residência', icon: 'Aa' },
+    { name: 'CEP', desc: 'Código postal', icon: '12' },
+    { name: 'Faixa Etária', desc: 'Faixa etária do eleitor', icon: 'Aa' },
+    { name: 'Renda Familiar', desc: 'Estimativa de renda familiar', icon: '12' },
+    { name: 'Score Engajamento', desc: 'Score de propensão a engajamento', icon: '12' },
+    { name: 'Classe Social', desc: 'Classificação socioeconômica', icon: 'Aa' },
+  ];
+
+  const filterTypeColor = (type) => {
+    const map = { geo: '#3B82F6', demo: '#8B5CF6', model: '#F59E0B', event: '#10B981', audience: '#EC4899', transaction: '#06B6D4' };
+    return map[type] || COLORS.muted;
+  };
+
+  const filterTypeLabel = (type) => {
+    const map = { geo: 'Geográfico', demo: 'Demográfico', model: 'Modelo ML', event: 'Evento', audience: 'Audiência', transaction: 'Transação' };
+    return map[type] || type;
+  };
+
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
-      <div style={{ padding: '32px', display: 'grid', gridTemplateColumns: '250px 1fr', gap: '32px', minHeight: '100vh' }}>
+      <div style={{ padding: '32px', display: 'grid', gridTemplateColumns: '220px 1fr 300px', gap: '24px', minHeight: '100vh' }}>
+
+        {/* Left sidebar — Audience list */}
         <div>
-          <h3 style={{ fontSize: '14px', fontWeight: '700', color: COLORS.muted, marginBottom: '16px', textTransform: 'uppercase' }}>Audiências</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '13px', fontWeight: '700', color: COLORS.muted, textTransform: 'uppercase', margin: 0 }}>Audiências</h3>
+            <span style={{ fontSize: '11px', color: COLORS.muted }}>{MOCK_DATA.audiences.length}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {MOCK_DATA.audiences.map((aud) => (
-              <div key={aud.id} onClick={() => setSelectedAudience(aud)} style={{ padding: '12px', borderRadius: '8px', cursor: 'pointer', backgroundColor: selectedAudience.id === aud.id ? COLORS.bgBlue : 'transparent', borderLeft: selectedAudience.id === aud.id ? `3px solid ${COLORS.primary}` : '3px solid transparent', transition: 'all 0.2s' }}
+              <div key={aud.id} onClick={() => setSelectedAudience(aud)} style={{ padding: '12px', borderRadius: '10px', cursor: 'pointer', backgroundColor: selectedAudience.id === aud.id ? COLORS.bgBlue : 'transparent', borderLeft: selectedAudience.id === aud.id ? `3px solid ${COLORS.primary}` : '3px solid transparent', transition: 'all 0.2s' }}
                 onMouseEnter={(e) => { if (selectedAudience.id !== aud.id) e.currentTarget.style.backgroundColor = COLORS.lightGray; }}
                 onMouseLeave={(e) => { if (selectedAudience.id !== aud.id) e.currentTarget.style.backgroundColor = 'transparent'; }}>
-                <div style={{ fontSize: '13px', fontWeight: '600', color: '#000', marginBottom: '4px' }}>{aud.name}</div>
-                <div style={{ fontSize: '11px', color: COLORS.muted, marginBottom: '4px' }}>{aud.size.toLocaleString()} perfis</div>
-                <Badge color={aud.status === 'Ativo' ? 'green' : aud.status === 'Teste' ? 'blue' : 'yellow'}>{aud.status}</Badge>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <div style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: selectedAudience.id === aud.id ? COLORS.primary : COLORS.muted, color: '#fff', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{aud.name.charAt(0)}</div>
+                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#000', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{aud.name}</div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: '32px' }}>
+                  <span style={{ fontSize: '11px', color: COLORS.muted }}>{aud.size.toLocaleString()}</span>
+                  <Badge color={aud.status === 'Ativo' ? 'green' : aud.status === 'Teste' ? 'blue' : 'yellow'} variant="soft">{aud.status}</Badge>
+                </div>
               </div>
             ))}
           </div>
-          <button style={{ width: '100%', marginTop: '20px', padding: '10px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>+ Nova Audiência</button>
+          <button style={{ width: '100%', marginTop: '16px', padding: '10px', backgroundColor: COLORS.primary, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}><Plus size={14} /> Nova Audiência</button>
         </div>
-        <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, padding: '32px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '24px' }}>
-            <div>
-              <input type="text" defaultValue={selectedAudience.name} style={{ fontSize: '24px', fontWeight: '700', border: 'none', padding: '0', backgroundColor: 'transparent', cursor: 'text', color: '#000' }} />
-              <div style={{ marginTop: '8px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                <Badge color={selectedAudience.status === 'Ativo' ? 'green' : 'blue'}>{selectedAudience.status}</Badge>
-                <span style={{ fontSize: '12px', color: COLORS.muted }}>Criada em {selectedAudience.created}</span>
+
+        {/* Center — Canvas Builder */}
+        <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, overflow: 'hidden' }}>
+          {/* Header bar */}
+          <div style={{ padding: '20px 28px', borderBottom: `1px solid ${COLORS.border}` }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: COLORS.primary, color: '#fff', fontSize: '15px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{selectedAudience.name.charAt(0)}</div>
+                <input type="text" defaultValue={selectedAudience.name} key={selectedAudience.id} style={{ fontSize: '22px', fontWeight: '700', border: 'none', padding: '0', backgroundColor: 'transparent', cursor: 'text', color: '#000', outline: 'none', width: '300px' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '24px', fontWeight: '700', color: COLORS.primary }}>{currentBuilder.audienceSize.toLocaleString()}</span>
+                <span style={{ fontSize: '12px', color: COLORS.primary, fontWeight: '500' }}>Eleitores</span>
               </div>
             </div>
-            <button onClick={() => setShowActivateModal(true)} style={{ padding: '10px 20px', backgroundColor: COLORS.success, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }}>Ativar Audiência</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <Badge color={selectedAudience.status === 'Ativo' ? 'green' : selectedAudience.status === 'Teste' ? 'blue' : 'yellow'}>{selectedAudience.status}</Badge>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '6px', backgroundColor: COLORS.bgBlue, fontSize: '12px', color: COLORS.primary, fontWeight: '500' }}>
+                <Database size={12} /> {currentBuilder.dataset}
+              </div>
+              <span style={{ fontSize: '12px', color: COLORS.muted }}>Salvo há poucos segundos</span>
+              <span style={{ fontSize: '12px', color: COLORS.muted, cursor: 'pointer' }}>Adicionar tags +</span>
+              <button onClick={() => setShowActivateModal(true)} style={{ marginLeft: 'auto', padding: '8px 16px', backgroundColor: COLORS.cardBg, color: '#333', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}><Send size={12} /> Exportar audiência</button>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '20px', marginBottom: '24px', borderBottom: `1px solid ${COLORS.border}`, paddingBottom: '12px' }}>
-            {['construtor', 'sql', 'configs'].map((tab) => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: activeTab === tab ? COLORS.primary : COLORS.muted, borderBottom: activeTab === tab ? `2px solid ${COLORS.primary}` : 'none' }}>
-                {tab === 'construtor' && 'Construtor'} {tab === 'sql' && 'SQL'} {tab === 'configs' && 'Configurações'}
+
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: '0', borderBottom: `1px solid ${COLORS.border}`, paddingLeft: '28px' }}>
+            {['construtor', 'configs'].map((tab) => (
+              <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '12px 20px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: '600', color: activeTab === tab ? COLORS.primary : COLORS.muted, borderBottom: activeTab === tab ? `2px solid ${COLORS.primary}` : '2px solid transparent', marginBottom: '-1px' }}>
+                {tab === 'construtor' ? 'Builder' : 'Settings'}
               </button>
             ))}
           </div>
-          {activeTab === 'construtor' && (
-            <div>
-              {/* Dataset Source */}
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontSize: '12px', fontWeight: '700', color: COLORS.muted, marginBottom: '8px', textTransform: 'uppercase' }}>Dataset Base</div>
-                <select style={{ width: '100%', padding: '10px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px', backgroundColor: COLORS.lightGray }}>
-                  <option>revfy_events (Revfy Pixel) — 3.1M registros</option>
-                  <option>Upload Março (CSV) — 45K registros</option>
-                  <option>Audiência Indecisos (Blended) — 2.3M registros</option>
-                </select>
-              </div>
 
-              {/* Filters */}
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ fontSize: '12px', fontWeight: '700', color: COLORS.muted, marginBottom: '12px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span>Filtros</span>
-                  <button style={{ padding: '4px 12px', fontSize: '11px', border: `1px solid ${COLORS.primary}`, borderRadius: '4px', background: 'none', color: COLORS.primary, cursor: 'pointer', fontWeight: '600' }}>+ Adicionar Filtro</button>
+          {/* Canvas Content */}
+          <div style={{ padding: '28px', overflowY: 'auto', maxHeight: 'calc(100vh - 260px)' }}>
+            {activeTab === 'construtor' && (
+              <div>
+                {/* Canvas sections */}
+                {currentBuilder.sections.map((section, sIdx) => (
+                  <div key={sIdx} style={{ marginBottom: '28px' }}>
+                    <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#000', marginBottom: '16px', paddingBottom: '8px', borderBottom: `1px solid ${COLORS.border}` }}>{section.title}</h2>
+
+                    {/* Filters */}
+                    {section.filters.map((f, fIdx) => (
+                      <div key={fIdx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', position: 'relative' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '600', color: f.logic.includes('not') ? COLORS.error : COLORS.primary, width: '70px', textAlign: 'right', fontFamily: 'monospace', flexShrink: 0 }}>{f.logic}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, padding: '8px 12px', backgroundColor: COLORS.lightGray, borderRadius: '8px', border: `1px solid ${COLORS.border}` }}>
+                          <span style={{ fontSize: '10px', fontWeight: '700', color: filterTypeColor(f.type), backgroundColor: filterTypeColor(f.type) + '15', padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>{filterTypeLabel(f.type)}</span>
+                          <span style={{ fontSize: '13px', fontWeight: '600', color: '#000' }}>{f.field}</span>
+                          <span style={{ fontSize: '12px', color: COLORS.muted }}>{f.op}</span>
+                          {f.values.map((v, vi) => (
+                            <span key={vi} style={{ fontSize: '12px', fontWeight: '600', color: COLORS.primary, backgroundColor: COLORS.bgBlue, padding: '2px 8px', borderRadius: '4px' }}>{v}</span>
+                          ))}
+                          {f.extra && <span style={{ fontSize: '11px', color: COLORS.muted }}>{f.extra}</span>}
+                          {f.count && <span style={{ fontSize: '10px', fontWeight: '600', color: '#fff', backgroundColor: COLORS.muted, padding: '2px 6px', borderRadius: '4px', marginLeft: 'auto' }}>Count</span>}
+                        </div>
+                        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                          <Plus size={14} color={COLORS.muted} style={{ cursor: 'pointer' }} />
+                          <Trash2 size={14} color={COLORS.muted} style={{ cursor: 'pointer' }} />
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Add filter prompt */}
+                    <div style={{ position: 'relative', marginTop: '8px' }}>
+                      <div onClick={() => setFilterDropdownOpen(filterDropdownOpen === sIdx ? null : sIdx)} style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '78px', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', border: `1px dashed ${COLORS.border}`, fontSize: '13px', color: COLORS.muted, flex: 1, transition: 'all 0.2s' }}
+                          onMouseEnter={e => { e.currentTarget.style.borderColor = COLORS.primary; e.currentTarget.style.color = COLORS.primary; }}
+                          onMouseLeave={e => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.color = COLORS.muted; }}>
+                          <Plus size={14} /> Comece digitando para adicionar um <span style={{ color: COLORS.primary, fontWeight: '600', textDecoration: 'underline' }}>filtro</span>
+                        </div>
+                      </div>
+                      {filterDropdownOpen === sIdx && (
+                        <div style={{ position: 'absolute', top: '100%', left: '78px', marginTop: '4px', backgroundColor: COLORS.cardBg, borderRadius: '10px', border: `1px solid ${COLORS.border}`, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 50, width: '280px', padding: '8px' }}>
+                          <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '700', color: COLORS.primary, borderBottom: `1px solid ${COLORS.border}`, marginBottom: '4px' }}>Campos Disponíveis</div>
+                          {availableFields.map((field, i) => (
+                            <div key={i} onClick={() => setFilterDropdownOpen(null)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                              onMouseEnter={e => e.currentTarget.style.backgroundColor = COLORS.lightGray}
+                              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                              <span style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: COLORS.lightGray, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '700', color: COLORS.muted }}>{field.icon}</span>
+                              <div>
+                                <div style={{ fontWeight: '600', color: '#000' }}>{field.name}</div>
+                                <div style={{ fontSize: '11px', color: COLORS.muted }}>{field.desc}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Exclusions block */}
+                {currentBuilder.exclusions.length > 0 && (
+                  <div style={{ marginBottom: '28px' }}>
+                    <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#000', marginBottom: '16px', paddingBottom: '8px', borderBottom: `1px solid ${COLORS.border}` }}>Exclusões de Audiência</h2>
+                    {currentBuilder.exclusions.map((ex, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '600', color: COLORS.error, width: '70px', textAlign: 'right', fontFamily: 'monospace', flexShrink: 0 }}>Where not</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, padding: '10px 14px', backgroundColor: `${COLORS.error}06`, borderRadius: '8px', border: `1px solid ${COLORS.error}25` }}>
+                          <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: COLORS.error + '15', color: COLORS.error, fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{ex.name.charAt(0)}</div>
+                          <div>
+                            <span style={{ fontSize: '13px', fontWeight: '600', color: '#000' }}>{ex.name}</span>
+                            <span style={{ fontSize: '11px', color: COLORS.muted, marginLeft: '8px' }}>View</span>
+                          </div>
+                          <span style={{ marginLeft: 'auto', fontSize: '12px', color: COLORS.muted }}>Eleitores</span>
+                          <span style={{ fontSize: '13px', fontWeight: '700', color: '#000' }}>{ex.size.toLocaleString()}</span>
+                          <Plus size={14} color={COLORS.muted} style={{ cursor: 'pointer' }} />
+                          <Trash2 size={14} color={COLORS.muted} style={{ cursor: 'pointer' }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add audience block */}
+                <div style={{ position: 'relative', marginBottom: '28px' }}>
+                  <div onClick={() => setAudienceDropdownOpen(!audienceDropdownOpen)} style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '78px', cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', border: `1px dashed ${COLORS.border}`, fontSize: '13px', color: COLORS.muted, flex: 1, transition: 'all 0.2s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#EC4899'; e.currentTarget.style.color = '#EC4899'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.color = COLORS.muted; }}>
+                      <Plus size={14} /> Comece digitando para adicionar uma <span style={{ color: '#EC4899', fontWeight: '600', textDecoration: 'underline' }}>audiência</span>
+                    </div>
+                  </div>
+                  {audienceDropdownOpen && (
+                    <div style={{ position: 'absolute', top: '100%', left: '78px', marginTop: '4px', backgroundColor: COLORS.cardBg, borderRadius: '10px', border: `1px solid ${COLORS.border}`, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 50, width: '300px', padding: '8px' }}>
+                      <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '700', color: '#EC4899', borderBottom: `1px solid ${COLORS.border}`, marginBottom: '4px' }}>Audiências</div>
+                      {MOCK_DATA.audiences.filter(a => a.id !== selectedAudience.id).map((aud) => (
+                        <div key={aud.id} onClick={() => setAudienceDropdownOpen(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = COLORS.lightGray}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ width: '24px', height: '24px', borderRadius: '6px', backgroundColor: COLORS.lightGray, color: COLORS.muted, fontSize: '10px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{aud.name.charAt(0)}</div>
+                            <span style={{ fontWeight: '600', color: '#000' }}>{aud.name}</span>
+                          </div>
+                          <span style={{ fontSize: '11px', color: COLORS.muted }}>{aud.size.toLocaleString()}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {[{ entity: 'Estado', attr: 'Valor', op: '=', val: 'SP', logic: 'WHERE' }, { entity: 'Faixa Etária', attr: 'Valor', op: 'BETWEEN', val: '25-44', logic: 'AND' }, { entity: 'Comportamento', attr: 'engajamento_digital', op: '>=', val: '0.7', logic: 'AND' }].map((filter, idx) => (
-                  <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '10px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '700', color: COLORS.primary, width: '50px', textAlign: 'center', fontFamily: 'monospace' }}>{filter.logic}</span>
-                    <select style={{ padding: '8px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '13px', flex: 1 }} defaultValue={filter.entity}><option>{filter.entity}</option><option>Região</option><option>Gênero</option><option>Renda</option></select>
-                    <select style={{ padding: '8px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '13px', flex: 1 }} defaultValue={filter.attr}><option>{filter.attr}</option></select>
-                    <select style={{ padding: '8px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '13px', width: '100px' }} defaultValue={filter.op}><option>=</option><option>!=</option><option>&gt;=</option><option>&lt;=</option><option>BETWEEN</option><option>IN</option></select>
-                    <input type="text" defaultValue={filter.val} style={{ padding: '8px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '6px', fontSize: '13px', flex: 1, boxSizing: 'border-box' }} />
-                    <Trash2 size={16} color={COLORS.muted} style={{ cursor: 'pointer', flexShrink: 0 }} />
+
+                {/* Add dataset block */}
+                <div style={{ position: 'relative' }}>
+                  <div onClick={() => setDatasetDropdownOpen(!datasetDropdownOpen)} style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingLeft: '78px', cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', borderRadius: '8px', border: `1px dashed ${COLORS.border}`, fontSize: '13px', color: COLORS.muted, flex: 1, transition: 'all 0.2s' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#06B6D4'; e.currentTarget.style.color = '#06B6D4'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.color = COLORS.muted; }}>
+                      <Plus size={14} /> Comece digitando para adicionar um <span style={{ color: '#06B6D4', fontWeight: '600', textDecoration: 'underline' }}>dataset</span>
+                    </div>
+                  </div>
+                  {datasetDropdownOpen && (
+                    <div style={{ position: 'absolute', top: '100%', left: '78px', marginTop: '4px', backgroundColor: COLORS.cardBg, borderRadius: '10px', border: `1px solid ${COLORS.border}`, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 50, width: '300px', padding: '8px' }}>
+                      <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: '700', color: '#06B6D4', borderBottom: `1px solid ${COLORS.border}`, marginBottom: '4px' }}>Datasets</div>
+                      {MOCK_DATA.datasets.map((ds, i) => (
+                        <div key={i} onClick={() => setDatasetDropdownOpen(false)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}
+                          onMouseEnter={e => e.currentTarget.style.backgroundColor = COLORS.lightGray}
+                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '11px', color: '#06B6D4' }}>S</span>
+                            <span style={{ fontWeight: '600', color: '#000' }}>{ds.nome}</span>
+                          </div>
+                          <span style={{ fontSize: '11px', color: COLORS.muted }}>{ds.registros}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'configs' && (
+              <div>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#000', marginBottom: '8px' }}>Nome da Audiência</label>
+                  <input type="text" defaultValue={selectedAudience.name} style={{ width: '100%', padding: '10px 14px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#000', marginBottom: '8px' }}>Split Tratamento / Controle</label>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ flex: 1, padding: '12px', backgroundColor: COLORS.bgBlue, borderRadius: '8px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '11px', color: COLORS.muted }}>Tratamento</div>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: COLORS.primary }}>{currentBuilder.treatment}%</div>
+                    </div>
+                    <div style={{ flex: 1, padding: '12px', backgroundColor: COLORS.lightGray, borderRadius: '8px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '11px', color: COLORS.muted }}>Controle</div>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: '#000' }}>{100 - currentBuilder.treatment}%</div>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#000', marginBottom: '8px' }}>Frequência de Atualização</label>
+                  <select style={{ width: '100%', padding: '10px 14px', border: `1px solid ${COLORS.border}`, borderRadius: '8px', fontSize: '13px' }}>
+                    <option>Tempo real</option><option>Horária</option><option>Diária</option><option>Semanal</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right sidebar — Metrics Panel */}
+        <div style={{ backgroundColor: COLORS.cardBg, borderRadius: '12px', border: `1px solid ${COLORS.border}`, boxShadow: COLORS.shadow, overflow: 'hidden', alignSelf: 'start', position: 'sticky', top: '32px' }}>
+          {/* Metrics tabs */}
+          <div style={{ display: 'flex', borderBottom: `1px solid ${COLORS.border}` }}>
+            {[{ id: 'metrics', label: 'Métricas' }, { id: 'comparisons', label: 'Comparações' }, { id: 'health', label: 'Health' }].map(t => (
+              <button key={t.id} onClick={() => setMetricsTab(t.id)} style={{ flex: 1, padding: '12px 8px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: '600', color: metricsTab === t.id ? COLORS.primary : COLORS.muted, borderBottom: metricsTab === t.id ? `2px solid ${COLORS.primary}` : '2px solid transparent', marginBottom: '-1px' }}>
+                {t.label} {t.id === 'health' && <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: selectedAudience.status === 'Ativo' ? COLORS.success : COLORS.error, marginLeft: '4px', verticalAlign: 'middle' }} />}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ padding: '20px' }}>
+            {metricsTab === 'metrics' && (
+              <div>
+                {/* Audience size metric */}
+                <div style={{ marginBottom: '6px' }}>
+                  <div style={{ fontSize: '11px', color: COLORS.muted, marginBottom: '2px' }}>—</div>
+                  <div style={{ fontSize: '28px', fontWeight: '700', color: '#000' }}>{currentBuilder.audienceSize.toLocaleString()}</div>
+                  <div style={{ fontSize: '12px', color: COLORS.primary, fontWeight: '600', marginBottom: '16px' }}>Total de Eleitores</div>
+                </div>
+
+                {/* Revenue estimate */}
+                <div style={{ marginBottom: '20px' }}>
+                  <div style={{ fontSize: '24px', fontWeight: '700', color: '#000' }}>{currentBuilder.revenue}</div>
+                  <div style={{ fontSize: '12px', color: COLORS.primary, fontWeight: '600', marginBottom: '16px' }}>Investimento Estimado</div>
+                </div>
+
+                {/* Treatment / Control split */}
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px', color: COLORS.muted }}>Tratamento</span>
+                      <span style={{ fontSize: '10px', fontWeight: '700', color: '#fff', backgroundColor: '#F59E0B', padding: '1px 5px', borderRadius: '3px' }}>{currentBuilder.treatment}%</span>
+                    </div>
+                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#000' }}>{treatmentCount.toLocaleString()}</div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px', color: COLORS.muted }}>Controle</span>
+                      <span style={{ fontSize: '10px', fontWeight: '700', color: '#fff', backgroundColor: COLORS.muted, padding: '1px 5px', borderRadius: '3px' }}>{100 - currentBuilder.treatment}%</span>
+                    </div>
+                    <div style={{ fontSize: '16px', fontWeight: '700', color: '#000' }}>{controlCount.toLocaleString()}</div>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div style={{ width: '100%', height: '8px', borderRadius: '4px', backgroundColor: '#E5E7EB', overflow: 'hidden', marginBottom: '24px' }}>
+                  <div style={{ height: '100%', width: `${currentBuilder.treatment}%`, backgroundColor: '#F59E0B', borderRadius: '4px' }} />
+                </div>
+
+                {/* Breakdowns */}
+                <div style={{ borderTop: `1px solid ${COLORS.border}`, paddingTop: '16px' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#000', marginBottom: '8px' }}>Breakdowns</h4>
+                  <p style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '12px' }}>Adicione relatórios granulares quebrando os eleitores desta audiência usando campos do seu data warehouse.</p>
+                  <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', backgroundColor: 'transparent', border: 'none', color: COLORS.primary, fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}><Plus size={14} /> Adicionar breakdown</button>
+                </div>
+              </div>
+            )}
+
+            {metricsTab === 'comparisons' && (
+              <div>
+                <p style={{ fontSize: '12px', color: COLORS.muted, marginBottom: '16px' }}>Compare esta audiência com outras para identificar overlaps e oportunidades de otimização.</p>
+                {MOCK_DATA.audiences.filter(a => a.id !== selectedAudience.id).map(aud => (
+                  <div key={aud.id} style={{ padding: '12px', backgroundColor: COLORS.lightGray, borderRadius: '8px', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: '#000' }}>{aud.name}</span>
+                      <span style={{ fontSize: '12px', color: COLORS.muted }}>{aud.size.toLocaleString()}</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: COLORS.muted }}>Overlap: <span style={{ fontWeight: '700', color: '#F59E0B' }}>{(Math.random() * 5 + 1).toFixed(1)}%</span></div>
                   </div>
                 ))}
               </div>
+            )}
 
-              {/* Inclusions / Exclusions */}
-              <div style={{ marginBottom: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div style={{ padding: '12px', border: `1px solid ${COLORS.success}40`, borderRadius: '8px', backgroundColor: `${COLORS.success}08` }}>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: COLORS.success, marginBottom: '8px' }}>Incluir Audiências</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer' }}>
-                      <input type="checkbox" defaultChecked style={{ width: '14px', height: '14px' }} /> Lookalike Sudeste (1.5M)
-                    </label>
+            {metricsTab === 'health' && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                  <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: selectedAudience.status === 'Ativo' ? COLORS.success : selectedAudience.status === 'Teste' ? '#F59E0B' : COLORS.error }} />
+                  <span style={{ fontSize: '14px', fontWeight: '700', color: '#000' }}>{selectedAudience.status === 'Ativo' ? 'Saudável' : selectedAudience.status === 'Teste' ? 'Em validação' : 'Atenção necessária'}</span>
+                </div>
+                {[
+                  { label: 'Qualidade dos dados', value: '96%', ok: true },
+                  { label: 'Taxa de match', value: '87%', ok: true },
+                  { label: 'Atualização', value: selectedAudience.status === 'Ativo' ? 'Tempo real' : 'Manual', ok: selectedAudience.status === 'Ativo' },
+                  { label: 'Compliance LGPD', value: 'Conforme', ok: true },
+                  { label: 'Overlap excessivo', value: selectedAudience.status === 'Rascunho' ? 'Verificar' : 'Nenhum', ok: selectedAudience.status !== 'Rascunho' },
+                ].map((item, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < 4 ? `1px solid ${COLORS.border}` : 'none', fontSize: '12px' }}>
+                    <span style={{ color: COLORS.muted }}>{item.label}</span>
+                    <span style={{ fontWeight: '600', color: item.ok ? COLORS.success : '#F59E0B' }}>{item.value}</span>
                   </div>
-                </div>
-                <div style={{ padding: '12px', border: `1px solid ${COLORS.error}40`, borderRadius: '8px', backgroundColor: `${COLORS.error}08` }}>
-                  <div style={{ fontSize: '12px', fontWeight: '700', color: COLORS.error, marginBottom: '8px' }}>Excluir Audiências</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', cursor: 'pointer' }}>
-                      <input type="checkbox" defaultChecked style={{ width: '14px', height: '14px' }} /> Base Inativa 90d (123K)
-                    </label>
-                  </div>
-                </div>
+                ))}
               </div>
-
-              {/* Audience Size */}
-              <div style={{ padding: '16px', backgroundColor: COLORS.bgBlue, borderRadius: '8px' }}>
-                <div style={{ fontSize: '13px', fontWeight: '700', color: COLORS.primary, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}><BarChart3 size={16} /> Tamanho da Audiência</div>
-                <div style={{ fontSize: '28px', fontWeight: '700', color: '#000', marginBottom: '4px' }}>847,293 <span style={{ fontSize: '14px', fontWeight: '400', color: COLORS.muted }}>perfis</span></div>
-                <div style={{ width: '100%', height: '8px', backgroundColor: '#E8E8E8', borderRadius: '4px', marginBottom: '12px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: '62%', backgroundColor: COLORS.primary, borderRadius: '4px' }} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', fontSize: '12px' }}>
-                  <div>Tratamento: <span style={{ fontWeight: '700', color: COLORS.primary }}>523,841</span> <span style={{ color: COLORS.muted }}>(62%)</span></div>
-                  <div>Controle: <span style={{ fontWeight: '700', color: COLORS.primary }}>323,452</span> <span style={{ color: COLORS.muted }}>(38%)</span></div>
-                  <div>Overlap: <span style={{ fontWeight: '700', color: '#FFA500' }}>12,340</span> <span style={{ color: COLORS.muted }}>(1.5%)</span></div>
-                </div>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
-      <Modal isOpen={showActivateModal} title="Ativar Audiência" onClose={() => setShowActivateModal(false)}>
+
+      <Modal isOpen={showActivateModal} title="Exportar Audiência" onClose={() => setShowActivateModal(false)}>
         <div style={{ marginBottom: '24px' }}>
           <label style={{ display: 'block', marginBottom: '12px', fontSize: '14px', fontWeight: '600', color: '#000' }}>Selecionar Destinos</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1143,7 +1465,7 @@ const AudienciasPage = ({ platformData }) => {
             ))}
           </div>
         </div>
-        <button style={{ width: '100%', padding: '12px', backgroundColor: COLORS.success, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Ativar</button>
+        <button style={{ width: '100%', padding: '12px', backgroundColor: COLORS.success, color: '#fff', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: '600', cursor: 'pointer' }}>Exportar</button>
       </Modal>
     </div>
   );
